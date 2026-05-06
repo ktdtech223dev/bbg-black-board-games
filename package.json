@@ -11,7 +11,10 @@
     "electron": "electron .",
     "electron:dev": "concurrently \"npm run dev\" \"wait-on http://localhost:5173 && cross-env NODE_ENV=development electron .\"",
     "electron:build": "npm run build && electron-builder",
-    "start": "node server/index.js"
+    "start": "node server/index.js",
+    "release:patch": "npm version patch && git push && git push --tags",
+    "release:minor": "npm version minor && git push && git push --tags",
+    "release:major": "npm version major && git push && git push --tags"
   },
   "dependencies": {
     "better-sqlite3": "^11.3.0",

@@ -13,8 +13,9 @@
   ],
   "publish": {
     "provider": "github",
-    "owner": "ngames-crew",
-    "repo": "bbg-black-board-games"
+    "owner": "ktdtech223dev",
+    "repo": "bbg-black-board-games",
+    "releaseType": "release"
   },
   "win": {
     "target": "portable",
