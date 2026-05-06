@@ -47,9 +47,30 @@ export const useBBG = create((set, get) => ({
     socket.on('disconnect', () => set({ connected: false }));
 
     socket.on('hub:lobby_created', data => {
-      set({ lobbyId: data.lobbyId, lobbyState: data.state, isHost: true, currentPage: 'lobby' });
+      // Online lobbies use a separate event (hub:online_joined) so this
+      // path is only the couch/party flow now.
+      const isOnline = data.state?.online || data.state?.mode === 'online';
+      set({
+        lobbyId: data.lobbyId,
+        lobbyState: data.state,
+        isHost: true,
+        currentPage: isOnline ? 'online' : 'lobby',
+      });
     });
-    socket.on('hub:lobby_updated', state => set({ lobbyState: state }));
+    socket.on('hub:online_joined', data => {
+      set({
+        lobbyId: data.lobbyId,
+        lobbyState: data.state,
+        isHost: !!data.isHost,
+        currentPage: 'online',
+      });
+    });
+    socket.on('hub:lobby_updated', state => {
+      set(s => ({
+        lobbyState: state,
+        isHost: state.hostId === s.mySocketId,
+      }));
+    });
 
     socket.on('game_started', state => {
       set({ gameState: state, currentPage: 'gw_faction' });
@@ -183,6 +204,21 @@ export const useBBG = create((set, get) => ({
   joinLobby: (lobbyId) => {
     const { socket, myPlayer } = get();
     socket?.emit('hub:join_lobby', { lobbyId, playerId: myPlayer?.id });
+  },
+
+  joinOnline: () => {
+    const { socket, myPlayer } = get();
+    if (!myPlayer) {
+      set({ lastError: 'Pick a crew member first' });
+      setTimeout(() => set({ lastError: null }), 3500);
+      return;
+    }
+    socket?.emit('hub:join_online', { playerId: myPlayer.id });
+  },
+
+  leaveOnline: () => {
+    get().socket?.emit('hub:leave_online');
+    set({ lobbyId: null, lobbyState: null, isHost: false });
   },
 
   toggleReady: (ready) => {

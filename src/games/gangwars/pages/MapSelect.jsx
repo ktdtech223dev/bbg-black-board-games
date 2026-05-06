@@ -2,9 +2,11 @@ import { useEffect } from 'react';
 import { useBBG } from '../../../store/useBBG';
 
 export default function MapSelect() {
-  const { mapsList, fetchMaps, selectedMap, setSelectedMap, setPage, isHost } = useBBG();
+  const { mapsList, fetchMaps, selectedMap, setSelectedMap, setPage, isHost, lobbyState } = useBBG();
 
   useEffect(() => { fetchMaps(); }, [fetchMaps]);
+
+  const backPage = lobbyState?.online ? 'online' : 'lobby';
 
   return (
     <div className="min-h-screen p-6 grain">
@@ -14,7 +16,7 @@ export default function MapSelect() {
           <div className="text-bbg-muted text-sm">{selectedMap ? `Selected: ${selectedMap.name}` : 'Choose where to wage war'}</div>
         </div>
         <div className="flex gap-2">
-          <button className="btn" onClick={() => setPage('lobby')}>← BACK</button>
+          <button className="btn" onClick={() => setPage(backPage)}>← BACK</button>
           {isHost && selectedMap && <button className="btn btn-primary" onClick={() => setPage('gw_mode')}>NEXT ▶</button>}
         </div>
       </div>

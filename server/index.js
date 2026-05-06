@@ -117,6 +117,36 @@ io.on('connection', socket => {
     });
   });
 
+  // Shared online room — IB-style. No code, no QR, everyone lands here.
+  socket.on('hub:join_online', ({ playerId }) => {
+    if (!playerId) return socket.emit('hub:error', { msg: 'Pick a crew member first' });
+    const player = db.prepare('SELECT * FROM players WHERE id=?').get(playerId);
+    if (!player) return socket.emit('hub:error', { msg: 'Player not found' });
+
+    const lobbyId = lobbyMgr.getOrCreateOnlineLobby(socket.id);
+    const result = lobbyMgr.joinLobby(lobbyId, socket.id, player);
+    if (result.error) return socket.emit('hub:error', result);
+
+    socket.join(lobbyId);
+    socket.lobbyId = lobbyId;
+
+    const isHost = lobbyMgr.getLobby(lobbyId).hostSocketId === socket.id;
+
+    socket.emit('hub:online_joined', {
+      lobbyId, state: lobbyMgr.getLobbyState(lobbyId), isHost,
+    });
+    io.to(lobbyId).emit('hub:lobby_updated', lobbyMgr.getLobbyState(lobbyId));
+  });
+
+  socket.on('hub:leave_online', () => {
+    if (!socket.lobbyId || !lobbyMgr.isOnlineRoomId(socket.lobbyId)) return;
+    const lobby = lobbyMgr.leaveLobby(socket.lobbyId, socket.id);
+    socket.leave(socket.lobbyId);
+    const id = socket.lobbyId;
+    socket.lobbyId = null;
+    if (lobby) io.to(id).emit('hub:lobby_updated', lobbyMgr.getLobbyState(id));
+  });
+
   socket.on('hub:join_lobby', ({ lobbyId, playerId }) => {
     const player = db.prepare('SELECT * FROM players WHERE id=?').get(playerId);
     if (!player) return socket.emit('hub:error', { msg: 'Player not found' });

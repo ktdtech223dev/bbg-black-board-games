@@ -26,7 +26,7 @@ export default function GangWars() {
 }
 
 function LobbyChoice() {
-  const { setPage, createLobby, myPlayer } = useBBG();
+  const { setPage, createLobby, joinOnline, myPlayer } = useBBG();
   return (
     <div className="min-h-screen flex flex-col items-center justify-center p-8 grain">
       <div className="font-display text-6xl text-bbg-gold tracking-[0.15em] mb-2">GANG WARS</div>
@@ -34,30 +34,30 @@ function LobbyChoice() {
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6 max-w-3xl w-full">
         <button
-          onClick={() => { createLobby('party'); setPage('lobby'); }}
+          onClick={() => { createLobby('party'); }}
           disabled={!myPlayer}
           className="bbg-card-base p-8 text-left hover:scale-105 transition disabled:opacity-50"
         >
           <div className="font-display text-3xl text-bbg-gold tracking-wider">🏠 PARTY</div>
-          <div className="text-sm text-bbg-muted mt-2">Couch multiplayer</div>
+          <div className="text-sm text-bbg-muted mt-2">Couch multiplayer · TV + Phones</div>
           <div className="font-mono text-xs text-bbg-muted mt-4">
-            • TV/PC shows the board<br/>
-            • Players join via phone QR<br/>
+            • This machine hosts the board<br/>
+            • Players join via QR on their phones<br/>
             • Add bots for solo play
           </div>
         </button>
 
         <button
-          onClick={() => { createLobby('online'); setPage('online'); }}
+          onClick={() => { joinOnline(); }}
           disabled={!myPlayer}
           className="bbg-card-base p-8 text-left hover:scale-105 transition disabled:opacity-50"
         >
           <div className="font-display text-3xl text-bbg-gold tracking-wider">🌐 ONLINE</div>
-          <div className="text-sm text-bbg-muted mt-2">Remote multiplayer</div>
+          <div className="text-sm text-bbg-muted mt-2">Remote multiplayer · Cross-device</div>
           <div className="font-mono text-xs text-bbg-muted mt-4">
-            • Hosted on Railway<br/>
-            • Share lobby code with crew<br/>
-            • Cross-device play
+            • One shared room — no codes<br/>
+            • Crew picks up instantly<br/>
+            • Hosted on Railway
           </div>
         </button>
       </div>
