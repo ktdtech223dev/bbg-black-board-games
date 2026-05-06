@@ -1,0 +1,197 @@
+const ACTION_CARDS = [
+  { id:'shakedown', name:'Shakedown', type:'action', rarity:'common', count:3, cost:{ muscle:100 },
+    desc:"Collect 40% of target player's Cash", flavor:'Pay up or get touched.',
+    apply: (state, playerId, targetId) => {
+      const target = state.players[targetId];
+      if (!target) return null;
+      const amount = Math.floor(target.resources.cash * 0.4);
+      target.resources.cash -= amount;
+      state.players[playerId].resources.cash += amount;
+      return { amount, targetId };
+    }
+  },
+  { id:'drive_by', name:'Drive-By', type:'action', rarity:'uncommon', count:2, cost:{ muscle:150 },
+    desc:'Destroy one tier of development on any district', flavor:'Slow down. Aim. Speed up.',
+    apply: (state, playerId, tileKey) => {
+      const tile = state.board.tileMap[tileKey];
+      if (tile && tile.owner && tile.owner !== playerId && tile.tier > 0) {
+        tile.tier--;
+        if (tile.tier === 0) tile.owner = null;
+      }
+    }
+  },
+  { id:'under_the_table', name:'Under the Table', type:'action', rarity:'common', count:3, cost:{},
+    desc:'Your next trade this round is tax-free', flavor:'No receipts. No records.',
+    apply: (state, playerId) => { state.players[playerId].taxFreeTrades = 1; }
+  },
+  { id:'block_party', name:'Block Party', type:'action', rarity:'rare', count:2, cost:{ clout:200 },
+    desc:'All players on your districts pay double tax this round', flavor:"It's a celebration... for your wallet.",
+    apply: (state, playerId) => { state.players[playerId].doubleTaxThisRound = true; }
+  },
+  { id:'witness_protection', name:'Witness Protection', type:'action', rarity:'rare', count:2, cost:{ connect:200 },
+    desc:'Immune to all attacks for 1 full round', flavor:'Relocated. Untouchable.',
+    apply: (state, playerId) => { state.players[playerId].immuneUntilRound = state.round + 1; }
+  },
+  { id:'come_up', name:'Come Up', type:'action', rarity:'common', count:4, cost:{},
+    desc:'Draw 3 cards, keep 2', flavor:'Every dog has its day.',
+    apply: (state, playerId) => {
+      const drawn = [];
+      for (let i = 0; i < 3; i++) {
+        if (state.deck.length === 0) break;
+        drawn.push(state.deck.pop());
+      }
+      const keep = drawn.slice(0, 2);
+      keep.forEach(c => state.players[playerId].hand.push(c));
+      drawn.slice(2).forEach(c => state.discard.push(c));
+      return { drawn: keep };
+    }
+  },
+  { id:'snitch', name:'Snitch', type:'action', rarity:'uncommon', count:2, cost:{ connect:100 },
+    desc:"Reveal any one player's full hand to ALL players", flavor:'12 in the building.',
+    apply: (state, playerId, targetId) => {
+      return { type:'revealHand', target:targetId, hand: state.players[targetId]?.hand || [] };
+    }
+  },
+  { id:'hostile_takeover', name:'Hostile Takeover', type:'action', rarity:'rare', count:2, cost:{ muscle:500, cash:300 },
+    desc:'Claim any Tier 1 district without combat if you have 5 Muscle resources', flavor:'Corporate raiders in Timbs.',
+    apply: (state, playerId, tileKey) => {
+      const tile = state.board.tileMap[tileKey];
+      if (tile && tile.tier === 1 && tile.owner !== playerId) {
+        const prev = tile.owner;
+        if (prev && state.players[prev]) {
+          state.players[prev].territories = state.players[prev].territories.filter(t => t !== tileKey);
+        }
+        tile.owner = playerId;
+        tile.tier = 1;
+        state.players[playerId].territories.push(tileKey);
+      }
+    }
+  },
+  { id:'flip_script', name:'Flip the Script', type:'action', rarity:'rare', count:2, cost:{ clout:300 },
+    desc:'Reverse tax payments this round — you collect from the taxer', flavor:'Plot twist.',
+    apply: (state, playerId) => { state.players[playerId].taxReversed = true; }
+  },
+  { id:'bail_money', name:'Bail Money', type:'action', rarity:'uncommon', count:2, cost:{ cash:400 },
+    desc:"Return one eliminated player's last district to unclaimed", flavor:'They out. The block up for grabs.',
+    apply: (state, playerId, tileKey) => {
+      const tile = state.board.tileMap[tileKey];
+      if (tile) {
+        const prev = tile.owner;
+        if (prev && state.players[prev]) {
+          state.players[prev].territories = state.players[prev].territories.filter(t => t !== tileKey);
+        }
+        tile.owner = null;
+        tile.tier = 0;
+      }
+    }
+  },
+  { id:'extortion', name:'Extortion', type:'action', rarity:'uncommon', count:3, cost:{ muscle:200 },
+    desc:'Target player must give you 200 of any one resource or lose a tier', flavor:'Pay the toll.',
+    apply: (state, playerId, targetId, resource) => {
+      const target = state.players[targetId];
+      if (!target) return null;
+      if (target.resources[resource] >= 200) {
+        target.resources[resource] -= 200;
+        state.players[playerId].resources[resource] += 200;
+      } else {
+        const owned = target.territories.filter(k => state.board.tileMap[k]?.tier > 0);
+        if (owned.length > 0) {
+          state.board.tileMap[owned[0]].tier--;
+        }
+      }
+      return { type:'demand', target:targetId, resource, amount:200 };
+    }
+  },
+  { id:'territory_swap', name:'Territory Swap', type:'action', rarity:'rare', count:1, cost:{ connect:400 },
+    desc:"Trade one of your districts for one of another player's — both must agree", flavor:'Business is business.',
+    apply: (state, playerId, targetId, myTile, theirTile) => {
+      return { type:'proposeTrade', initiator:playerId, target:targetId, offer:myTile, request:theirTile };
+    }
+  },
+];
+
+const EVENT_CARDS = [
+  { id:'city_crackdown', name:'City Crackdown', type:'event', count:2,
+    desc:'No attacks allowed this round. Police presence is heavy.', flavor:'They watching everybody tonight.',
+    apply: (state) => { state.roundModifiers.noAttacks = true; }
+  },
+  { id:'economic_boom', name:'Economic Boom', type:'event', count:2,
+    desc:'All districts produce double resources this round.', flavor:'Money in the air.',
+    apply: (state) => { state.roundModifiers.resourceMultiplier = 2; }
+  },
+  { id:'gang_truce', name:'Gang Truce', type:'event', count:2,
+    desc:'Mandatory trading round. No attacks. All players must make one trade offer.', flavor:'The OGs called it.',
+    apply: (state) => { state.roundModifiers.noAttacks = true; state.roundModifiers.mandatoryTrade = true; }
+  },
+  { id:'new_blood', name:'New Blood', type:'event', count:2,
+    desc:'Two unclaimed districts appear at the city edges.', flavor:'New territory just opened up.',
+    apply: (state) => { state.roundModifiers.newDistricts = 2; }
+  },
+  { id:'the_feds', name:'The Feds', type:'event', count:2,
+    desc:'Player with most Muscle loses half of it.', flavor:'They came for the biggest one.',
+    apply: (state) => {
+      let maxMuscle = 0, targetId = null;
+      Object.entries(state.players).forEach(([id, p]) => {
+        if (p.resources.muscle > maxMuscle) { maxMuscle = p.resources.muscle; targetId = id; }
+      });
+      if (targetId) state.players[targetId].resources.muscle = Math.floor(maxMuscle / 2);
+    }
+  },
+  { id:'rent_strike', name:'Rent Strike', type:'event', count:2,
+    desc:'No tax collection this round.', flavor:'The people said no.',
+    apply: (state) => { state.roundModifiers.noTax = true; }
+  },
+  { id:'block_fire', name:'Block Fire', type:'event', count:2,
+    desc:'A random occupied district goes neutral.', flavor:'Whole block torched.',
+    apply: (state) => {
+      const occupied = Object.values(state.board.tileMap).filter(t => t.owner && t.tier > 0);
+      if (occupied.length > 0) {
+        const target = occupied[Math.floor(Math.random() * occupied.length)];
+        const prev = target.owner;
+        if (prev && state.players[prev]) {
+          state.players[prev].territories = state.players[prev].territories.filter(t => t !== target.key);
+        }
+        target.owner = null;
+        target.tier = 0;
+      }
+    }
+  },
+  { id:'supply_chain', name:'Supply Chain', type:'event', count:2,
+    desc:'All resource costs reduced 25% this round.', flavor:'Plug got a deal.',
+    apply: (state) => { state.roundModifiers.costReduction = 0.25; }
+  },
+  { id:'war_season', name:'War Season', type:'event', count:2,
+    desc:'All attacks cost 50% less Muscle this round. Aggression is up.', flavor:'Summer time. You know what it is.',
+    apply: (state) => { state.roundModifiers.attackCostMultiplier = 0.5; }
+  },
+  { id:'drought', name:'The Drought', type:'event', count:2,
+    desc:'Resource yields halved this round.', flavor:'Nothing moving out here.',
+    apply: (state) => { state.roundModifiers.resourceMultiplier = 0.5; }
+  },
+];
+
+function buildDeck() {
+  const cards = [];
+  ACTION_CARDS.forEach(card => {
+    for (let i = 0; i < card.count; i++) {
+      cards.push({ ...card, instanceId: `${card.id}-${i}-${Math.random().toString(36).slice(2,7)}` });
+    }
+  });
+  EVENT_CARDS.forEach(card => {
+    for (let i = 0; i < card.count; i++) {
+      cards.push({ ...card, instanceId: `${card.id}-${i}-${Math.random().toString(36).slice(2,7)}` });
+    }
+  });
+  return shuffle(cards);
+}
+
+function shuffle(arr) {
+  const a = [...arr];
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
+}
+
+module.exports = { ACTION_CARDS, EVENT_CARDS, buildDeck, shuffle };

@@ -1,0 +1,140 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --bbg-void:    #070709;
+  --bbg-deep:    #0c0c12;
+  --bbg-panel:   #111118;
+  --bbg-card:    #16161f;
+  --bbg-raised:  #1c1c28;
+  --bbg-hover:   #222232;
+  --bbg-gold:    #c8a84b;
+  --bbg-gold2:   #e8c86a;
+  --bbg-gold3:   #a88030;
+  --bbg-red:     #cc2222;
+  --bbg-green:   #1a6b3a;
+  --bbg-text:    #e8e4d8;
+  --bbg-muted:   #6b6880;
+  --bbg-border:  #1e1e2e;
+  --oblock:      #cc2222;
+  --compton:     #2255cc;
+  --newyork:     #ccaa00;
+  --atlanta:     #22aa44;
+  --craigwood:   #cc6600;
+  --lakings:     #8822cc;
+  --cash:        #22cc55;
+  --muscle:      #cc2222;
+  --clout:       #cc88ff;
+  --connect:     #22aacc;
+  --trap:        #cc4422;
+  --corner:      #cc2244;
+  --social:      #8844cc;
+  --underground: #224488;
+  --wild:        #cc8822;
+}
+
+html, body, #root {
+  height: 100%;
+  margin: 0;
+  background: var(--bbg-void);
+  color: var(--bbg-text);
+  font-family: 'Rajdhani', system-ui, sans-serif;
+  overflow-x: hidden;
+}
+
+::-webkit-scrollbar { width: 10px; height: 10px; }
+::-webkit-scrollbar-track { background: var(--bbg-deep); }
+::-webkit-scrollbar-thumb { background: var(--bbg-raised); border-radius: 5px; }
+::-webkit-scrollbar-thumb:hover { background: var(--bbg-gold3); }
+
+.font-display { font-family: 'Bebas Neue', Impact, sans-serif; letter-spacing: 0.05em; }
+.font-mono { font-family: 'JetBrains Mono', Consolas, monospace; }
+
+.scanlines::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 50;
+  background: repeating-linear-gradient(
+    0deg,
+    rgba(0, 0, 0, 0) 0,
+    rgba(0, 0, 0, 0) 2px,
+    rgba(255, 255, 255, 0.015) 3px,
+    rgba(255, 255, 255, 0.015) 3px
+  );
+}
+
+.bbg-glow-gold { box-shadow: 0 0 24px rgba(200, 168, 75, 0.4), inset 0 0 16px rgba(200, 168, 75, 0.08); }
+.bbg-glow-red { box-shadow: 0 0 24px rgba(204, 34, 34, 0.5), inset 0 0 16px rgba(204, 34, 34, 0.1); }
+.bbg-glow-green { box-shadow: 0 0 24px rgba(26, 107, 58, 0.5); }
+
+.bbg-card-base {
+  background: linear-gradient(180deg, var(--bbg-card) 0%, var(--bbg-panel) 100%);
+  border: 1px solid var(--bbg-border);
+  border-radius: 8px;
+}
+
+.btn {
+  font-family: 'Bebas Neue', sans-serif;
+  letter-spacing: 0.1em;
+  padding: 0.6rem 1.25rem;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all 0.18s ease;
+  border: 1px solid transparent;
+  background: var(--bbg-raised);
+  color: var(--bbg-text);
+}
+.btn:hover { background: var(--bbg-hover); transform: translateY(-1px); }
+.btn-primary {
+  background: linear-gradient(180deg, var(--bbg-gold2), var(--bbg-gold3));
+  color: #0a0a0a;
+  font-weight: 700;
+  border-color: var(--bbg-gold);
+}
+.btn-primary:hover { box-shadow: 0 0 18px rgba(200, 168, 75, 0.5); }
+.btn-danger { background: var(--bbg-red); color: #fff; }
+.btn-disabled { opacity: 0.4; cursor: not-allowed; pointer-events: none; }
+
+@keyframes shimmer {
+  0% { background-position: -300% 0; }
+  100% { background-position: 300% 0; }
+}
+.shimmer {
+  background: linear-gradient(90deg, transparent, rgba(200,168,75,0.18), transparent);
+  background-size: 200% 100%;
+  animation: shimmer 3s linear infinite;
+}
+
+@keyframes pulse-glow {
+  0%, 100% { box-shadow: 0 0 14px currentColor; }
+  50% { box-shadow: 0 0 28px currentColor; }
+}
+.pulse-glow { animation: pulse-glow 2s ease-in-out infinite; }
+
+@keyframes flag-wave {
+  0%, 100% { transform: skewX(0deg); }
+  50% { transform: skewX(8deg); }
+}
+.flag-wave { animation: flag-wave 1.6s ease-in-out infinite; transform-origin: left center; }
+
+@keyframes dice-shake {
+  0%, 100% { transform: rotate(0); }
+  20% { transform: rotate(-12deg) scale(1.1); }
+  40% { transform: rotate(15deg) scale(0.95); }
+  60% { transform: rotate(-8deg) scale(1.05); }
+  80% { transform: rotate(10deg); }
+}
+.dice-rolling { animation: dice-shake 0.4s ease-in-out infinite; filter: blur(0.5px); }
+
+.grain {
+  background-image:
+    radial-gradient(rgba(255,255,255,0.018) 1px, transparent 1px),
+    radial-gradient(rgba(0,0,0,0.5) 1px, transparent 1px);
+  background-size: 4px 4px, 6px 6px;
+  background-position: 0 0, 2px 2px;
+}
+
+.text-shadow-strong { text-shadow: 0 2px 8px rgba(0,0,0,0.85); }

@@ -1,0 +1,26 @@
+{
+  "appId": "com.ngames.bbg",
+  "productName": "BBG (Black Board Games)",
+  "directories": {
+    "output": "dist-electron"
+  },
+  "files": [
+    "dist/**/*",
+    "server/**/*",
+    "electron/**/*",
+    "node_modules/**/*",
+    "package.json"
+  ],
+  "publish": {
+    "provider": "github",
+    "owner": "ngames-crew",
+    "repo": "bbg-black-board-games"
+  },
+  "win": {
+    "target": "portable",
+    "icon": "public/icon.ico"
+  },
+  "portable": {
+    "artifactName": "BBG-${version}-portable.exe"
+  }
+}
