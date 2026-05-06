@@ -4,6 +4,7 @@ import ResourceBar from '../ui/ResourceBar';
 import CardHand from '../ui/CardHand';
 import DiceFace from '../graphics/dice/DiceFace';
 import TradeModal from '../ui/TradeModal';
+import RadioWidget from '../ui/RadioWidget';
 import { PORTRAITS } from '../graphics/portraits';
 
 export default function PhoneView() {
@@ -130,6 +131,7 @@ export default function PhoneView() {
       </main>
 
       <TradeModal open={tradeOpen} onClose={() => setTradeOpen(false)} />
+      <RadioWidget position="bottom-right" />
     </div>
   );
 }

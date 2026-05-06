@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import { io } from 'socket.io-client';
+import { sfx } from '../games/gangwars/audio/SFX';
 
 const SERVER = import.meta.env.VITE_SERVER_URL || (typeof window !== 'undefined' ? window.location.origin : 'http://localhost:3847');
 
@@ -63,20 +64,49 @@ export const useBBG = create((set, get) => ({
     socket.on('dice_rolled', data => {
       set({ diceResult: data });
       get().addEvent({ type: 'dice', data });
+      sfx.diceRoll();
     });
-    socket.on('territory_claimed', data => get().addEvent({ type: 'claim', data }));
-    socket.on('territory_developed', data => get().addEvent({ type: 'develop', data }));
-    socket.on('combat_resolved', data => get().addEvent({ type: 'combat', data }));
-    socket.on('card_played', data => get().addEvent({ type: 'card', data }));
-    socket.on('event_triggered', data => get().addEvent({ type: 'event', data }));
-    socket.on('player_eliminated', data => get().addEvent({ type: 'eliminated', data }));
-    socket.on('ability_used', data => get().addEvent({ type: 'ability', data }));
+    socket.on('territory_claimed', data => {
+      get().addEvent({ type: 'claim', data });
+      sfx.territoryClaimed();
+    });
+    socket.on('territory_developed', data => {
+      get().addEvent({ type: 'develop', data });
+      sfx.develop();
+    });
+    socket.on('combat_resolved', data => {
+      get().addEvent({ type: 'combat', data });
+      data.attackerWon ? sfx.attackHit() : sfx.attackMiss();
+    });
+    socket.on('card_played', data => {
+      get().addEvent({ type: 'card', data });
+      sfx.cardPlay();
+    });
+    socket.on('event_triggered', data => {
+      get().addEvent({ type: 'event', data });
+      sfx.eventTrigger();
+    });
+    socket.on('player_eliminated', data => {
+      get().addEvent({ type: 'eliminated', data });
+      sfx.eliminated();
+    });
+    socket.on('ability_used', data => {
+      get().addEvent({ type: 'ability', data });
+      sfx.ability();
+    });
     socket.on('trade_proposed', data => get().addEvent({ type: 'trade_proposed', data }));
-    socket.on('trade_completed', data => get().addEvent({ type: 'trade', data }));
+    socket.on('trade_completed', data => {
+      get().addEvent({ type: 'trade', data });
+      sfx.trade();
+    });
 
-    socket.on('game_over', data => set({ currentPage: 'gw_over', gameOverData: data }));
+    socket.on('game_over', data => {
+      set({ currentPage: 'gw_over', gameOverData: data });
+      sfx.victory();
+    });
 
     socket.on('turn_ended', data => {
+      const prev = get().gameState?.currentTurn;
       set(s => ({
         gameState: s.gameState ? {
           ...s.gameState,
@@ -86,11 +116,16 @@ export const useBBG = create((set, get) => ({
           currentPhase: 'roll',
         } : s.gameState
       }));
+      // SFX cue when it becomes my turn
+      if (data.nextPlayer === get().mySocketId && prev !== get().mySocketId) {
+        sfx.turnStart();
+      }
     });
 
     socket.on('hub:error', err => {
       console.warn('Hub error:', err);
       set({ lastError: err.msg || 'Error' });
+      sfx.error();
       setTimeout(() => set({ lastError: null }), 3500);
     });
   },

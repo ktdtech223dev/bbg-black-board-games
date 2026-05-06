@@ -6,6 +6,7 @@ import EventBanner from '../ui/EventBanner';
 import DiceRoller from '../ui/DiceRoller';
 import ResourceBar from '../ui/ResourceBar';
 import AttackModal from '../ui/AttackModal';
+import RadioWidget from '../ui/RadioWidget';
 
 export default function GameBoard() {
   const {
@@ -129,6 +130,8 @@ export default function GameBoard() {
           onConfirm={() => { attackTile(attackTarget.key); setAttackTarget(null); }}
         />
       )}
+
+      <RadioWidget position="bottom-left" />
     </div>
   );
 }
