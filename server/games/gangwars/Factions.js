@@ -81,11 +81,10 @@ const FACTIONS = {
     difficulty: 'Hard',
     starting: { cash: 200, muscle: 150, clout: 150, connect: 350, cards: 5, preClaimedDistricts: 0 },
     passive: {
-      name: 'Free Pass',
-      desc: 'Never pay tax on the first enemy district you pass through each round',
-      apply: (state, playerId) => {
-        state.players[playerId].freePasses = 1;
-      }
+      name: 'Intel Network',
+      desc: 'Pay half tax to other players (intel keeps you off the books)',
+      // Applied directly in processTax — see GameEngine.js
+      apply: (state, playerId) => {}
     },
     active: {
       name: 'Street Intel',

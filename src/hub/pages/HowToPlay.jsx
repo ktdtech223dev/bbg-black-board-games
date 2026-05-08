@@ -151,23 +151,29 @@ function Flow() {
       </Note>
 
       <H3>3 · END TURN (Tax phase)</H3>
-      <P>When you click <strong>END TURN</strong>, every other player who owns a developed district pays you tax in Cash:</P>
+      <P>When you click <strong>END TURN</strong>, your tile holdings determine a <strong>tax rate</strong>. Every other player pays that % of their current Cash:</P>
       <ul className="list-disc pl-6 space-y-1 text-sm">
-        <li>Tier 1 Operation → 50 Cash</li>
-        <li>Tier 2 Trap → 150 Cash</li>
-        <li>Tier 3 Empire → 350 Cash</li>
+        <li>Each <strong>Tier-1 Operation</strong> you own → <strong>1%</strong></li>
+        <li>Each <strong>Tier-2 Trap</strong> → <strong>2%</strong></li>
+        <li>Each <strong>Tier-3 Empire</strong> → <strong>3%</strong></li>
       </ul>
+      <P className="mt-3"><strong>Examples:</strong></P>
+      <ul className="list-disc pl-6 space-y-1 text-sm">
+        <li>You own 6 × Tier-1 → opponents pay 6% of their cash</li>
+        <li>You own 3 × T1 + 2 × T2 + 1 × T3 → 3% + 4% + 3% = <strong>10%</strong></li>
+      </ul>
+      <Note color="gold">
+        Tax now scales with your <em>territory dominance</em>. The more (and bigger) tiles you hold, the heavier
+        the rent everyone pays you. This makes claiming and developing the dominant strategy.
+      </Note>
 
       <H3>Anti-softlock safeguards</H3>
-      <P>Tax is balanced so a single bad streak can't lock you out of the game:</P>
       <ul className="list-disc pl-6 space-y-1 text-sm">
-        <li><strong>Poverty floor:</strong> if your total wealth is under <strong>200</strong>, you pay <strong>no tax</strong> this round. Rebuild without bleeding.</li>
-        <li><strong>Soft cap:</strong> any single tax payment is capped at <strong>25% of your current Cash</strong>. Tier-3 tax (350) still hits rich players for ~350; cash-poor players never lose more than a quarter.</li>
-        <li><strong>Resource floor:</strong> If you're stuck, use <strong>Bag Run</strong> (100 Muscle → 200 Cash) or <strong>HUSTLE</strong> (100 Clout → 2 cards) to break out of a slump without rolling.</li>
+        <li><strong>Poverty floor:</strong> if your total wealth is under <strong>200</strong>, you pay <strong>no tax</strong>. Rebuild without bleeding.</li>
+        <li><strong>NY Rats discount:</strong> NY pays half tax across the board (intel network).</li>
+        <li><strong>Conversion cards:</strong> Bag Run (100 Muscle → 200 Cash), Recruit (200 Cash → 200 Muscle), Network (100 Cash → 200 Connect) prevent dead-ends.</li>
+        <li><strong>HUSTLE</strong> (100 Clout → 2 cards) and <strong>Plug Drop</strong> (200 Cash → +200 random) keep options open.</li>
       </ul>
-      <Note color="green">
-        These safeguards mean rolling streaks no longer lock you out. There's always a play.
-      </Note>
     </>
   );
 }
@@ -179,12 +185,18 @@ function Resources() {
       <P>Four currencies. Every one has a purpose. Total wealth (sum of all four) is what wins Quick/Medium games.</P>
 
       <H3>💵 CASH</H3>
-      <P>Earned from <strong>Trap</strong> districts. Used for nearly every economic action.</P>
+      <P>The wealth-engine resource. Two ways to earn it:</P>
+      <ul className="list-disc pl-6 space-y-1 text-sm">
+        <li><strong>Trap districts</strong> — produce Cash on roll match (the only tile type that yields Cash)</li>
+        <li><strong>Tax</strong> — every end-of-turn, opponents pay 1/2/3% of their cash per Tier 1/2/3 tile you own</li>
+        <li><em>Plus:</em> trade, Bag Run conversion card, Plug Drop random, Heist theft, Wild center bonus</li>
+      </ul>
+      <P className="mt-2">Spent on:</P>
       <ul className="list-disc pl-6 space-y-1 text-sm">
         <li><strong>Claim a tile:</strong> 100 Cash</li>
         <li><strong>Develop:</strong> 300 Cash (Op→Trap), 600 Cash (Trap→Empire)</li>
-        <li><strong>Tax payments:</strong> you pay other players when they end their turn</li>
-        <li><strong>Card costs:</strong> Hostile Takeover, Bail Money</li>
+        <li><strong>Tax payments:</strong> automatically, when opponents end their turn</li>
+        <li><strong>Card costs:</strong> Hostile Takeover, Bail Money, Loaded, Plug Drop, Recruit, Network</li>
       </ul>
 
       <H3>💪 MUSCLE</H3>
@@ -435,7 +447,7 @@ function Factions() {
       act:'25% develop discount this turn',
       start:'400$ · 100M · 150C · 100K · 3 cards' },
     { n:'New York Rats',        c:'#ccaa00', city:'New York',    style:'Information', diff:'Hard',
-      pass:'Free Pass — first enemy district passed = no tax',
+      pass:'Intel Network — pay HALF tax to other players',
       act:'Street Intel — peek at any hand or resources (50 Connect)',
       start:'200$ · 150M · 150C · 350K · 5 cards' },
     { n:'Atlanta-Stan Soldiers',c:'#22aa44', city:'Atlanta',     style:'Clout',       diff:'Medium',
@@ -484,10 +496,10 @@ function Paths() {
 
       <H3>💰 5 ways to generate wealth</H3>
       <ol className="list-decimal pl-6 space-y-2 text-sm">
-        <li><strong>Roll matches.</strong> Own a tile, roll its number, get its yield. Highest base income — <em>especially</em> on hot tiles (6/8 = 5/36 odds).</li>
+        <li><strong>Roll matches.</strong> Own a tile, roll its number, get its yield. Trap tiles → Cash, Corner → Muscle, Social → Clout, Underground → Connect. Hot tiles (6/8 token, 5/36 odds) are gold.</li>
         <li><strong>Develop tiers.</strong> Tier 2 yields 50% more than Tier 1; Tier 3 yields 100% more. Pay 300/600 once, earn forever.</li>
-        <li><strong>Tax.</strong> Every round, end your turn → opponents with developed tiles pay you cash (50/150/350 by tier).</li>
-        <li><strong>Wild center.</strong> Own (0,0) and you produce on EVERY roll, regardless of dice (5/10/15/20 + bonus card).</li>
+        <li><strong>Tax.</strong> Tax rate = 1% × (your T1 tiles) + 2% × T2 + 3% × T3. Every opponent pays that % of their cash when you end your turn.</li>
+        <li><strong>Wild center.</strong> Own (0,0) and you produce on EVERY roll, regardless of dice (5/10/15/20 + bonus card every other roll).</li>
         <li><strong>The Feds skim.</strong> Roll a 7 → you steal 50 of every resource from the wealthiest opponent.</li>
       </ol>
 

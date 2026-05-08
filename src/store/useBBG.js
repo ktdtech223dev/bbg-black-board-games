@@ -213,18 +213,25 @@ export const useBBG = create((set, get) => ({
 
     socket.on('tax_resolved', data => {
       const me = get().mySocketId;
+      const ratePct = data.totalRate ? Math.round(data.totalRate * 100) : 0;
       const myEvent = data.events?.find(e => e.payerId === me);
       if (myEvent) {
         if (myEvent.exempt) {
           get().toast({ type:'success', icon:'🛡️', msg:'TAX EXEMPT · poverty floor (<200 wealth)' });
         } else if (myEvent.paid > 0) {
-          get().toast({ type:'error', icon:'💸', msg:`Paid ${myEvent.paid} cash in tax` });
+          const myPct = myEvent.rate ? Math.round(myEvent.rate * 100) : ratePct;
+          get().toast({ type:'error', icon:'💸', msg:`Paid ${myEvent.paid} cash (${myPct}% tax)` });
+        } else if (myEvent.paid < 0) {
+          get().toast({ type:'gain', icon:'🔄', msg:`Tax flipped — collected ${-myEvent.paid} cash` });
         }
       }
       if (data.taxerId === me) {
         const total = (data.events || []).reduce((s, e) => s + (e.paid || 0), 0);
         if (total > 0) {
-          get().toast({ type:'gain', icon:'💰', msg:`Collected ${total} cash in tax` });
+          const breakdown = data.tilesByTier
+            ? Object.entries(data.tilesByTier).filter(([,n]) => n > 0).map(([t,n]) => `${n}×T${t}`).join(' ')
+            : '';
+          get().toast({ type:'gain', icon:'💰', msg:`Collected ${total} cash · ${ratePct}% rate ${breakdown}` });
         }
       }
     });

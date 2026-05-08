@@ -11,6 +11,7 @@ import ActionConfirm from '../ui/ActionConfirm';
 import ScoutResult from '../ui/ScoutResult';
 import ScoutPicker from '../ui/ScoutPicker';
 import TileInspector from '../ui/TileInspector';
+import HandDrawer from '../ui/HandDrawer';
 import HowToPlay from '../../../hub/pages/HowToPlay';
 
 export default function GameBoard() {
@@ -141,6 +142,7 @@ export default function GameBoard() {
       <CardTargetPicker />
       <ScoutPicker />
       <ScoutResult />
+      <HandDrawer />
       <RadioWidget position="bottom-left" />
 
       <button

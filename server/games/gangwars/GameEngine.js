@@ -637,23 +637,46 @@ class GangWarsEngine {
     return { success: true };
   }
 
-  // ── TAX PHASE (v1.6 anti-softlock rework) ─────────────────
-  // Two safeguards keep poor players from getting starved into a
-  // pure rolling loop:
-  //   1. POVERTY FLOOR: payers with < 200 total wealth pay nothing
-  //      this round. They get to rebuild without hemorrhaging cash.
-  //   2. SOFT CAP: each tax payment is capped at 25% of payer's
-  //      current cash. Tier-3 tax (350) still hits rich players
-  //      almost in full but never empties anyone's wallet.
+  // ── TAX PHASE (v1.7 — % of payer's cash, scaled by taxer's holdings)
+  // Tax is now driven by what YOU own, not what they own:
+  //   - Each of your tier-1 tiles takes 1% of every opponent's cash
+  //   - Each tier-2 tile  → 2%
+  //   - Each tier-3 tile  → 3%
+  // Total rate is summed across your developed tiles. Example:
+  //   You own 6 × tier-1 → opponents each pay 6% of their cash
+  //   You own 3 × tier-1 + 2 × tier-2 + 1 × tier-3 → 3+4+3 = 10%
   //
-  // The taxer collects exactly what the payer paid (the cap means
-  // both sides can be reduced together — we don't fudge the books).
+  // Anti-softlock safeguards stay:
+  //   - Poverty floor: payers with < 200 total wealth pay nothing.
+  //   - NY Rats faction: passively pays half tax (intel network).
+  //   - Block Party card: doubles taxer's rate this round.
+  //   - Flip the Script card: payer collects from taxer instead.
+  //
+  // Cash is now generated primarily by:
+  //   1. Trap-tile rolls (only tile type producing Cash)
+  //   2. Tax (% of opponents' cash, scaled by your tile holdings)
+  //   3. Card effects (Plug Drop / Heist / Bag Run / Shakedown)
+  //   4. Wild center bonus (random resource on every roll)
+  //   5. Roll of 7 — the active player skims 50 from the wealthiest
   processTax(socketId) {
     const taxer = this.state.players[socketId];
     if (!taxer || this.state.roundModifiers.noTax) return;
 
+    const TIER_RATES = { 1: 0.01, 2: 0.02, 3: 0.03 };
     const POVERTY_FLOOR = 200;
-    const PAYMENT_CAP_RATIO = 0.25;
+
+    // Compute the taxer's total tax rate based on their tile holdings.
+    let totalRate = 0;
+    let tilesByTier = { 1: 0, 2: 0, 3: 0 };
+    taxer.territories.forEach(tileKey => {
+      const tile = this.state.board.tileMap[tileKey];
+      if (!tile || !tile.tier) return;
+      const r = TIER_RATES[tile.tier] || 0;
+      totalRate += r;
+      tilesByTier[tile.tier] = (tilesByTier[tile.tier] || 0) + 1;
+    });
+    if (taxer.doubleTaxThisRound) totalRate *= 2;
+    if (totalRate <= 0) return;
 
     const taxEvents = [];
 
@@ -667,41 +690,29 @@ class GangWarsEngine {
         return;
       }
 
-      let totalPaid = 0;
-      player.territories.forEach(tileKey => {
-        const tile = this.state.board.tileMap[tileKey];
-        if (!tile || tile.tier === 0) return;
+      // NY Rats passive: half tax (intel network avoids rent).
+      const factionMod = player.faction === 'newyork' ? 0.5 : 1;
+      const effectiveRate = totalRate * factionMod;
+      const amount = Math.floor((player.resources.cash || 0) * effectiveRate);
+      if (amount <= 0) return;
 
-        const taxAmt = TAX_RATES[tile.tier] || 0;
-        if (taxAmt === 0) return;
-
-        let finalTax = taxAmt;
-        if (taxer.doubleTaxThisRound) finalTax *= 2;
-
-        // Soft cap: never take more than 25% of payer's current cash.
-        const cap = Math.floor((player.resources.cash || 0) * PAYMENT_CAP_RATIO);
-        finalTax = Math.min(finalTax, cap);
-        if (finalTax <= 0) return;
-
-        if (player.taxReversed) {
-          player.resources.cash += finalTax;
-          taxer.resources.cash = Math.max(0, (taxer.resources.cash || 0) - finalTax);
-          totalPaid -= finalTax;
-        } else {
-          const canPay = Math.min(player.resources.cash, finalTax);
-          if (canPay <= 0) return;
-          player.resources.cash -= canPay;
-          taxer.resources.cash += canPay;
-          totalPaid += canPay;
-          if (player.resources.cash < 0) player.resources.cash = 0;
-          this.checkElimination(id);
-        }
-      });
-      if (totalPaid !== 0) taxEvents.push({ payerId: id, paid: totalPaid });
+      if (player.taxReversed) {
+        // Flip the Script: taxer pays the player instead, capped at taxer's cash.
+        const reversed = Math.min(taxer.resources.cash || 0, amount);
+        if (reversed <= 0) return;
+        taxer.resources.cash -= reversed;
+        player.resources.cash += reversed;
+        taxEvents.push({ payerId: id, paid: -reversed, rate: effectiveRate });
+      } else {
+        player.resources.cash -= amount;
+        taxer.resources.cash += amount;
+        taxEvents.push({ payerId: id, paid: amount, rate: effectiveRate });
+        this.checkElimination(id);
+      }
     });
 
     if (taxEvents.length > 0) {
-      this.broadcast('tax_resolved', { taxerId: socketId, events: taxEvents });
+      this.broadcast('tax_resolved', { taxerId: socketId, events: taxEvents, totalRate, tilesByTier });
     }
   }
 
