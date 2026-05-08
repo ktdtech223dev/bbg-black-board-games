@@ -11,6 +11,7 @@ const { getCurrentWeeklyMaps } = require('./hub/WeeklyMaps');
 const { PERMANENT_MAPS, SEASONAL_MAPS } = require('./games/gangwars/Maps');
 const { FACTIONS } = require('./games/gangwars/Factions');
 const { db } = require('./database');
+const pkg = require('../package.json');
 const { getActiveSeason, daysRemaining } = require('./hub/SeasonManager');
 const { getAllPlayers, getPlayerStats, recordGameResult } = require('./hub/PlayerProfiles');
 const { getLocalIP, buildJoinURL } = require('./hub/PartyHost');
@@ -30,7 +31,7 @@ app.get('/api/hub/status', (req, res) => {
   const weekly = getCurrentWeeklyMaps();
   const season = getActiveSeason();
   res.json({
-    version: process.env.npm_package_version || '1.0.0',
+    version: pkg.version,
     localIP: getLocalIP(),
     port: process.env.PORT || 3847,
     weekly: { weekSeed: weekly.weekSeed, mapAName: weekly.mapA.name, mapBName: weekly.mapB.name },
