@@ -7,6 +7,8 @@ import TradeModal from '../ui/TradeModal';
 import RadioWidget from '../ui/RadioWidget';
 import CardTargetPicker from '../ui/CardTargetPicker';
 import ActionConfirm from '../ui/ActionConfirm';
+import ScoutResult from '../ui/ScoutResult';
+import ScoutPicker from '../ui/ScoutPicker';
 import HexBoard from '../board/HexBoard';
 import HowToPlay from '../../../hub/pages/HowToPlay';
 import { PORTRAITS } from '../graphics/portraits';
@@ -17,6 +19,7 @@ export default function PhoneView() {
     rollDice, endTurn, useFactionAbility, factionsList, fetchFactions,
     pendingCard, currentAction, setCurrentAction, resolveCardTarget, pendActionForTile,
     productions, helpOpen, setHelpOpen, selectedTile, setSelectedTile,
+    hustle, setPickingScoutTarget,
   } = useBBG();
   const [tab, setTab] = useState('act');
   const [tradeOpen, setTradeOpen] = useState(false);
@@ -102,6 +105,14 @@ export default function PhoneView() {
                 <button className="btn w-full text-base py-3" onClick={() => useFactionAbility({})}>
                   ⚡ {factionData?.active || 'FACTION ABILITY'}
                 </button>
+                <div className="grid grid-cols-2 gap-2 mt-2">
+                  <button className="btn text-sm py-3" onClick={hustle} title="100 Clout · +2 cards">
+                    💸 HUSTLE
+                  </button>
+                  <button className="btn text-sm py-3" onClick={() => setPickingScoutTarget(true)} title="75 Connect · spy hand">
+                    🔭 SCOUT
+                  </button>
+                </div>
                 <button className="btn btn-danger w-full text-base py-3 mt-3" onClick={endTurn}>
                   🔚 END TURN
                 </button>
@@ -170,13 +181,19 @@ export default function PhoneView() {
       <TradeModal open={tradeOpen} onClose={() => setTradeOpen(false)} />
       <CardTargetPicker />
       <ActionConfirm />
+      <ScoutPicker />
+      <ScoutResult />
       <RadioWidget position="bottom-right" />
 
       <button
         onClick={() => setHelpOpen(true)}
-        className="fixed top-3 right-3 z-30 bbg-card-base w-10 h-10 flex items-center justify-center text-xl"
-        title="How to play"
-      >?</button>
+        className="fixed top-3 right-3 z-30 bbg-card-base px-2 py-1.5 flex items-center gap-1"
+        style={{ borderColor: 'var(--bbg-gold)' }}
+        title="Game guide"
+      >
+        <span>📖</span>
+        <span className="font-display text-[10px] tracking-wider">HELP</span>
+      </button>
       {helpOpen && <HowToPlay onClose={() => setHelpOpen(false)} embedded />}
     </div>
   );

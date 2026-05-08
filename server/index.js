@@ -259,6 +259,20 @@ io.on('connection', socket => {
     if (result.error) socket.emit('hub:error', result);
   });
 
+  socket.on('gw:hustle', () => {
+    const engine = gameEngines[socket.lobbyId];
+    if (!engine) return;
+    const result = engine.hustle(socket.id);
+    if (result.error) socket.emit('hub:error', result);
+  });
+
+  socket.on('gw:scout', ({ targetId }) => {
+    const engine = gameEngines[socket.lobbyId];
+    if (!engine) return;
+    const result = engine.scout(socket.id, targetId);
+    if (result.error) socket.emit('hub:error', result);
+  });
+
   socket.on('gw:propose_trade', ({ toId, offer, request }) => {
     const engine = gameEngines[socket.lobbyId];
     if (!engine) return;

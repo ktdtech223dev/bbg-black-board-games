@@ -177,6 +177,43 @@ class GangWarsEngine {
     const collections = {};
     const productions = []; // [{ tileKey, resource, amount, ownerSocketId, q, r }]
     const modifier = this.state.roundModifiers.resourceMultiplier || 1;
+    const raidEvents = [];
+
+    // ── ROLL OF 7: THE RAID ────────────────────────────────────
+    // 7 is the most-rolled total but lives on no tile. Use it like
+    // Catan's robber: the rich pay a fine, the current player skims.
+    if (roll === 7) {
+      const me = this.state.players[socketId];
+      Object.entries(this.state.players).forEach(([sid, p]) => {
+        if (p.isEliminated) return;
+        const total = (p.resources.cash || 0) + (p.resources.muscle || 0) + (p.resources.clout || 0) + (p.resources.connect || 0);
+        if (total >= 1500) {
+          const fine = Math.min(p.resources.cash || 0, 100);
+          if (fine > 0) {
+            p.resources.cash -= fine;
+            raidEvents.push({ socketId: sid, type: 'fine', amount: fine });
+          }
+        }
+      });
+      // Active player skims from the wealthiest non-current player
+      const otherSorted = Object.entries(this.state.players)
+        .filter(([sid, p]) => sid !== socketId && !p.isEliminated)
+        .map(([sid, p]) => ({ sid, p, total: Object.values(p.resources).reduce((a,b)=>a+b,0) }))
+        .sort((a,b) => b.total - a.total);
+      if (me && otherSorted[0]) {
+        const victim = otherSorted[0];
+        const steal = {};
+        ['cash','muscle','clout','connect'].forEach(r => {
+          const grab = Math.min(victim.p.resources[r] || 0, 50);
+          if (grab > 0) {
+            victim.p.resources[r] -= grab;
+            me.resources[r] = (me.resources[r] || 0) + grab;
+            steal[r] = grab;
+          }
+        });
+        raidEvents.push({ socketId: victim.sid, type: 'skimmed', steal, by: socketId });
+      }
+    }
 
     Object.values(this.state.players).filter(p => !p.isEliminated).forEach(player => {
       player.territories.forEach(tileKey => {
@@ -214,6 +251,30 @@ class GangWarsEngine {
       }
     });
 
+    // ── WILD CENTER BONUS ──────────────────────────────────────
+    // The center hex (q=0,r=0) has no number. If a player owns it,
+    // they get a bonus on EVERY roll: a small random resource yield
+    // plus a +1 card draw on every other roll.
+    const center = this.state.board.tileMap['0,0'];
+    if (center?.owner && this.state.players[center.owner] && !this.state.players[center.owner].isEliminated) {
+      const ownerId = center.owner;
+      const player = this.state.players[ownerId];
+      const tier = center.tier || 0;
+      const RES = ['cash','muscle','clout','connect'];
+      const bonusRes = RES[Math.floor(Math.random() * 4)];
+      const bonusAmt = 5 + tier * 5;          // 5/10/15/20 by tier
+      player.resources[bonusRes] = (player.resources[bonusRes] || 0) + bonusAmt;
+      productions.push({
+        tileKey: '0,0', resource: bonusRes, amount: bonusAmt,
+        ownerSocketId: ownerId, q: 0, r: 0, wild: true,
+      });
+      // Bonus card every other roll
+      if (!center.wildPulseFlip) {
+        drawCards(this.state, ownerId, 1);
+      }
+      center.wildPulseFlip = !center.wildPulseFlip;
+    }
+
     Object.entries(this.state.players).forEach(([sid, p]) => {
       if (p.faction === 'oblock' && !p.isEliminated) {
         FACTIONS.oblock.passive.apply(this.state, sid);
@@ -225,13 +286,17 @@ class GangWarsEngine {
     this.state.currentRoll = roll;
     this.state.currentPhase = 'act';
 
+    // Atomic update: send private state FIRST so client UI is in sync,
+    // then the public event (with scores included for any UI that reads it).
+    this.broadcastPrivateStates();
     this.broadcast('dice_rolled', {
       roll, d1, d2, collections, productions,
+      raid: raidEvents.length > 0 ? raidEvents : null,
       currentPlayer: this.currentPlayerSocket(),
+      scores: this.getScores(),
     });
 
-    this.log(`🎲 Roll: ${roll} (${d1}+${d2})`);
-    this.broadcastPrivateStates();
+    this.log(`🎲 Roll: ${roll} (${d1}+${d2})${roll === 7 ? ' · 🚨 RAID' : ''}`);
     return { roll, d1, d2, collections };
   }
 
@@ -272,6 +337,7 @@ class GangWarsEngine {
     tile.heldRounds = { [socketId]: 0 };
     player.territories.push(tileKey);
 
+    this.broadcastPrivateStates();
     this.broadcast('territory_claimed', {
       socketId, tileKey,
       playerName: player.name,
@@ -279,7 +345,6 @@ class GangWarsEngine {
     });
 
     this.log(`🚩 ${player.name} claimed ${tileKey}`);
-    this.broadcastPrivateStates();
     return { success: true };
   }
 
@@ -310,6 +375,7 @@ class GangWarsEngine {
     tile.tier = nextTier;
     player.developmentDiscount = 0;
 
+    this.broadcastPrivateStates();
     this.broadcast('territory_developed', {
       socketId, tileKey, tier: nextTier,
       scores: this.getScores(),
@@ -317,7 +383,6 @@ class GangWarsEngine {
 
     const tierNames = ['', 'Operation', 'Trap', 'Empire'];
     this.log(`🏗️ ${player.name} built ${tierNames[nextTier]} at ${tileKey}`);
-    this.broadcastPrivateStates();
     return { success: true };
   }
 
@@ -363,6 +428,7 @@ class GangWarsEngine {
       if (attacker.resources.muscle < 0) attacker.resources.muscle = 0;
     }
 
+    this.broadcastPrivateStates();
     this.broadcast('combat_resolved', {
       attackerId, defenderId: defender.socketId,
       tileKey, atkRoll, defRoll, attackerWon,
@@ -370,7 +436,6 @@ class GangWarsEngine {
     });
 
     this.log(`⚔️ ${attacker.name} ${attackerWon ? 'took' : 'failed at'} ${tileKey}`);
-    this.broadcastPrivateStates();
     return { success: true, attackerWon, atkRoll, defRoll };
   }
 
@@ -398,6 +463,7 @@ class GangWarsEngine {
       this.broadcast('event_triggered', { card, result, socketId });
     }
 
+    this.broadcastPrivateStates();
     this.broadcast('card_played', {
       socketId, card,
       playerName: player.name,
@@ -406,8 +472,48 @@ class GangWarsEngine {
     });
 
     this.log(`🃏 ${player.name} played ${card.name}`);
-    this.broadcastPrivateStates();
     return { success: true, result };
+  }
+
+  // ── HUSTLE (Clout-spent) — draw a card outside the normal flow.
+  // ── SCOUT  (Connect-spent) — peek at any player's private state.
+  hustle(socketId) {
+    if (!this.isCurrentTurn(socketId)) return { error: 'Not your turn' };
+    const player = this.state.players[socketId];
+    if (!player) return { error: 'No player' };
+    if (player.hustled) return { error: 'Already hustled this turn' };
+    const cost = { clout: 100 };
+    if (!this.canAfford(player, cost)) return { error: 'Need 100 Clout' };
+    this.deductResources(player, cost);
+    player.hustled = true;
+    drawCards(this.state, socketId, 2);
+    this.broadcastPrivateStates();
+    this.broadcast('hustled', { socketId, name: player.name });
+    this.log(`💸 ${player.name} hustled · drew 2 cards`);
+    return { success: true };
+  }
+
+  scout(socketId, targetId) {
+    const player = this.state.players[socketId];
+    if (!player) return { error: 'No player' };
+    if (player.scouted) return { error: 'Already scouted this turn' };
+    const target = this.state.players[targetId];
+    if (!target) return { error: 'No target' };
+    if (targetId === socketId) return { error: 'Cannot scout yourself' };
+    const cost = { connect: 75 };
+    if (!this.canAfford(player, cost)) return { error: 'Need 75 Connect' };
+    this.deductResources(player, cost);
+    player.scouted = true;
+    this.io.to(socketId).emit('scout_result', {
+      targetId,
+      targetName: target.name,
+      hand: target.hand,
+      resources: target.resources,
+    });
+    this.broadcastPrivateStates();
+    this.broadcast('scouted', { socketId, name: player.name, targetName: target.name });
+    this.log(`🔭 ${player.name} scouted ${target.name}`);
+    return { success: true };
   }
 
   useFactionAbility(socketId, options = {}) {
@@ -425,13 +531,14 @@ class GangWarsEngine {
 
     const result = faction.active.apply(this.state, socketId, options.targetId, options.param1);
 
+    this.broadcastPrivateStates();
     this.broadcast('ability_used', {
       socketId, factionId: player.faction,
       ability: faction.active.name, result,
+      scores: this.getScores(),
     });
 
     this.log(`⚡ ${player.name} used ${faction.active.name}`);
-    this.broadcastPrivateStates();
     return { success: true, result };
   }
 
@@ -467,8 +574,8 @@ class GangWarsEngine {
       }
     });
 
-    this.broadcast('trade_completed', { fromId, toId, offer, request, scores: this.getScores() });
     this.broadcastPrivateStates();
+    this.broadcast('trade_completed', { fromId, toId, offer, request, scores: this.getScores() });
   }
 
   endTurn(socketId) {
@@ -484,6 +591,8 @@ class GangWarsEngine {
       player.untaxableResources = 0;
       player.developmentDiscount = 0;
       player.taxFreeTrades = 0;
+      player.hustled = false;
+      player.scouted = false;
     }
 
     this.state.turn = (this.state.turn + 1) % this.state.turnOrder.length;
@@ -513,13 +622,13 @@ class GangWarsEngine {
     this.state.currentPhase = 'roll';
     this.state.currentRoll = null;
 
+    this.broadcastPrivateStates();
     this.broadcast('turn_ended', {
       nextPlayer: this.currentPlayerSocket(),
       round: this.state.round,
       scores: this.getScores(),
     });
 
-    this.broadcastPrivateStates();
     return { success: true };
   }
 

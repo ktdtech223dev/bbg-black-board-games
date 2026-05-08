@@ -137,10 +137,16 @@ function Flow() {
         <li><strong>Claim</strong> an unclaimed tile → 100 Cash · becomes your Operation (tier 1)</li>
         <li><strong>Develop</strong> your tile → 300 Cash to upgrade to Trap (tier 2), 600 Cash for Empire (tier 3)</li>
         <li><strong>Attack</strong> an enemy tile → 200 Muscle × tier · dice combat</li>
+        <li><strong>Hustle</strong> → spend 100 Clout to draw 2 cards (1×/turn)</li>
+        <li><strong>Scout</strong> → spend 75 Connect to peek at any player's hand + resources (1×/turn)</li>
         <li><strong>Play a card</strong> from your hand → pay its cost, apply effect</li>
         <li><strong>Use your faction ability</strong> → once per turn, varies by faction</li>
         <li><strong>Trade</strong> with any player at any time during the round</li>
       </ul>
+      <Note>
+        <strong>Hustle</strong> and <strong>Scout</strong> give Clout and Connect a baseline use every turn —
+        you don't need a card in hand to spend them.
+      </Note>
 
       <H3>3 · END TURN (Tax phase)</H3>
       <P>When you click <strong>END TURN</strong>, every other player who owns a developed district pays you tax in Cash:</P>
@@ -178,18 +184,21 @@ function Resources() {
       </ul>
 
       <H3>📱 CLOUT</H3>
-      <P>Earned from <strong>Social</strong> districts. The face/reputation currency — runs the strongest cards and abilities.</P>
+      <P>Earned from <strong>Social</strong> districts. The face/reputation currency — fuels card draws and influence plays.</P>
       <ul className="list-disc pl-6 space-y-1 text-sm">
-        <li><strong>Card costs:</strong> Block Party (200), Flip the Script (300)</li>
+        <li><strong>HUSTLE</strong> action (any turn): 100 Clout → draw 2 cards</li>
+        <li><strong>Card costs:</strong> Block Party (200), Flip the Script (300), Glow Up (250)</li>
         <li><strong>Faction abilities:</strong> LA Kings' Front Operations (50)</li>
-        <li><strong>Atlanta passive:</strong> bonus Clout for connected districts</li>
+        <li><strong>Atlanta passive:</strong> bonus Clout for 3+ connected same-type districts</li>
       </ul>
 
       <H3>🔗 CONNECT</H3>
-      <P>Earned from <strong>Underground</strong> districts. Information & networking — fuels intel and protection.</P>
+      <P>Earned from <strong>Underground</strong> districts. Information & networking — fuels intel, protection, and tile manipulation.</P>
       <ul className="list-disc pl-6 space-y-1 text-sm">
-        <li><strong>Card costs:</strong> Witness Protection (200), Snitch (100), Territory Swap (400)</li>
+        <li><strong>SCOUT</strong> action (any turn): 75 Connect → peek at any player's full hand + resources</li>
+        <li><strong>Card costs:</strong> Witness Protection (200), Snitch (100), Territory Swap (400), Tunnel Vision (250)</li>
         <li><strong>Faction abilities:</strong> NY Rats' Street Intel (50)</li>
+        <li><strong>Network</strong> card: convert Cash → Connect at favorable rate</li>
       </ul>
 
       <Note>
@@ -227,6 +236,26 @@ function Districts() {
       <Note color="red">
         <strong>6 and 8 are HOT</strong> — the most-rolled numbers. Tiles with 6 or 8 are gold.
         <strong> 2 and 12 are COLD</strong> — rolled rarely. Don't pay full price for those.
+      </Note>
+
+      <H3>⭐ The Wild Center (no number)</H3>
+      <P>The center hex sits empty until claimed. Once owned, it's the most valuable tile on the board:</P>
+      <ul className="list-disc pl-6 space-y-1 text-sm">
+        <li>Produces a <strong>random resource</strong> on EVERY roll (5 / 10 / 15 / 20 by tier)</li>
+        <li>Owner draws a <strong>bonus card every other roll</strong></li>
+        <li>Develops normally (300 Cash for Trap, 600 for Empire)</li>
+      </ul>
+      <Note color="gold">Whoever locks down the center early has a steady drip income forever. Worth fighting for.</Note>
+
+      <H3>🚨 Roll of 7 — THE FEDS</H3>
+      <P>7 is the single most-rolled total — but lives on no tile. Every roll of 7 triggers a city raid:</P>
+      <ul className="list-disc pl-6 space-y-1 text-sm">
+        <li>Every player with <strong>1500+ total wealth</strong> pays a 100-cash fine to the bank</li>
+        <li>The active player <strong>skims 50 of every resource</strong> from the wealthiest opponent</li>
+      </ul>
+      <Note color="red">
+        7 happens often (~17% of rolls). The leader pays a tax for being ahead, the active player pulls
+        ahead by skimming. This is the catch-up mechanic that prevents runaway leads.
       </Note>
     </>
   );
@@ -313,13 +342,21 @@ function Cards() {
     { n:'Shakedown',         c:'100 Muscle',     d:'Steal 40% of target player\'s Cash',                          t:'pick player' },
     { n:'Drive-By',          c:'150 Muscle',     d:'Destroy one tier of an enemy district',                       t:'pick enemy tile' },
     { n:'Hostile Takeover',  c:'500 M + 300 $',  d:'Claim any Tier-1 enemy tile without combat',                  t:'pick T1 enemy tile' },
+    { n:'Heist',             c:'250 Muscle',     d:'Steal 250 of one resource from target player',                t:'player + resource' },
+    { n:'Smoke Out',         c:'100 Muscle',     d:'Target discards a random card',                                t:'pick player' },
     { n:'Extortion',         c:'200 Muscle',     d:'Demand 200 of any resource — refusal = lose a tier',           t:'player + resource' },
     { n:'Block Party',       c:'200 Clout',      d:'Players on your tiles pay double tax this round',              t:'no target' },
     { n:'Flip the Script',   c:'300 Clout',      d:'Reverse tax this round — taxers pay you',                      t:'no target' },
+    { n:'Glow Up',           c:'250 Clout',      d:'Free 1-tier upgrade on your lowest-tier tile',                 t:'no target' },
     { n:'Witness Protection',c:'200 Connect',    d:'Immune to all attacks for 1 round',                            t:'no target' },
     { n:'Snitch',            c:'100 Connect',    d:'Reveal any player\'s full hand to everyone',                   t:'pick player' },
     { n:'Territory Swap',    c:'400 Connect',    d:'Force-swap your last claimed tile for any enemy tile',         t:'pick enemy tile' },
     { n:'Bail Money',        c:'400 Cash',       d:'Reset any enemy district back to unclaimed',                   t:'pick enemy tile' },
+    { n:'Loaded',            c:'300 Cash',       d:'Draw 3 cards immediately',                                     t:'no target' },
+    { n:'Plug Drop',         c:'200 Cash',       d:'Gain +200 of a random resource',                               t:'no target' },
+    { n:'Recruit',           c:'200 Cash',       d:'Convert: 200 Cash → 200 Muscle',                              t:'no target' },
+    { n:'Bag Run',           c:'100 Muscle',     d:'Convert: 100 Muscle → 200 Cash',                              t:'no target' },
+    { n:'Network',           c:'100 Cash',       d:'Convert: 100 Cash → 200 Connect',                             t:'no target' },
     { n:'Under the Table',   c:'free',           d:'Your next trade this round is tax-free',                       t:'no target' },
     { n:'Come Up',           c:'free',           d:'Draw 3 cards, keep 2',                                         t:'no target' },
   ];

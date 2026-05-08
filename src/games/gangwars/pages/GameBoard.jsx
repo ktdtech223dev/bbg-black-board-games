@@ -8,13 +8,15 @@ import ResourceBar from '../ui/ResourceBar';
 import RadioWidget from '../ui/RadioWidget';
 import CardTargetPicker from '../ui/CardTargetPicker';
 import ActionConfirm from '../ui/ActionConfirm';
+import ScoutResult from '../ui/ScoutResult';
+import ScoutPicker from '../ui/ScoutPicker';
 import HowToPlay from '../../../hub/pages/HowToPlay';
 
 export default function GameBoard() {
   const {
     gameState, privateState, mySocketId, recentEvents,
     selectedTile, setSelectedTile, currentAction, setCurrentAction,
-    diceResult, rollDice, endTurn,
+    diceResult, rollDice, endTurn, hustle, setPickingScoutTarget,
     pendingCard, resolveCardTarget, pendActionForTile,
     productions, helpOpen, setHelpOpen,
   } = useBBG();
@@ -109,10 +111,13 @@ export default function GameBoard() {
 
         {isMyTurn && phase === 'act' && (
           <div className="bbg-card-base p-3 space-y-2">
-            <div className="text-xs font-mono text-bbg-muted">ACTIONS</div>
-            <button className={`btn w-full ${currentAction==='claim'?'btn-primary':''}`} onClick={() => setCurrentAction(currentAction==='claim'?null:'claim')}>🚩 CLAIM</button>
-            <button className={`btn w-full ${currentAction==='develop'?'btn-primary':''}`} onClick={() => setCurrentAction(currentAction==='develop'?null:'develop')}>🏗️ DEVELOP</button>
-            <button className={`btn w-full ${currentAction==='attack'?'btn-primary':''}`} onClick={() => setCurrentAction(currentAction==='attack'?null:'attack')}>⚔️ ATTACK</button>
+            <div className="text-xs font-mono text-bbg-muted">CORE ACTIONS</div>
+            <button className={`btn w-full ${currentAction==='claim'?'btn-primary':''}`} onClick={() => setCurrentAction(currentAction==='claim'?null:'claim')}>🚩 CLAIM <span className="text-xs text-bbg-muted">100 $</span></button>
+            <button className={`btn w-full ${currentAction==='develop'?'btn-primary':''}`} onClick={() => setCurrentAction(currentAction==='develop'?null:'develop')}>🏗️ DEVELOP <span className="text-xs text-bbg-muted">300/600 $</span></button>
+            <button className={`btn w-full ${currentAction==='attack'?'btn-primary':''}`} onClick={() => setCurrentAction(currentAction==='attack'?null:'attack')}>⚔️ ATTACK <span className="text-xs text-bbg-muted">200 M/tier</span></button>
+            <div className="text-xs font-mono text-bbg-muted pt-2 border-t border-bbg-border">SOFT POWER</div>
+            <button className="btn w-full" onClick={hustle} title="Spend Clout to draw cards">💸 HUSTLE <span className="text-xs text-bbg-muted">100 C → +2 cards</span></button>
+            <button className="btn w-full" onClick={() => setPickingScoutTarget(true)} title="Spend Connect to peek at any player">🔭 SCOUT <span className="text-xs text-bbg-muted">75 K → spy hand</span></button>
             <button className="btn btn-danger w-full mt-2" onClick={endTurn}>🔚 END TURN</button>
           </div>
         )}
@@ -138,14 +143,18 @@ export default function GameBoard() {
 
       <ActionConfirm />
       <CardTargetPicker />
+      <ScoutPicker />
+      <ScoutResult />
       <RadioWidget position="bottom-left" />
 
       <button
         onClick={() => setHelpOpen(true)}
-        className="fixed top-4 right-4 z-30 bbg-card-base w-12 h-12 flex items-center justify-center text-2xl hover:scale-110 transition"
-        title="How to play"
+        className="fixed top-4 right-4 z-30 bbg-card-base px-3 py-2 flex items-center gap-2 hover:scale-105 transition"
+        style={{ borderColor: 'var(--bbg-gold)' }}
+        title="Game guide"
       >
-        ?
+        <span className="text-xl">📖</span>
+        <span className="font-display text-sm tracking-wider">HOW TO PLAY</span>
       </button>
       {helpOpen && <HowToPlay onClose={() => setHelpOpen(false)} embedded />}
     </div>

@@ -1,3 +1,5 @@
+const { drawCards } = require('./Factions');
+
 // target: how the card asks for input from the player.
 //   null              — no input needed, plays immediately
 //   'player'          — pick another live player
@@ -148,6 +150,89 @@ const ACTION_CARDS = [
       myTile.heldRounds = { [theirOwner]: 0 };
       theirTile.heldRounds = { [playerId]: 0 };
       return { type:'swap', myTile: theirTileKey, theirTile: myTileKey };
+    }
+  },
+
+  // ── EXPANDED CARD POOL (v1.5) — adds variety + reduces softlock ────
+  { id:'heist', name:'Heist', type:'action', rarity:'uncommon', count:2, cost:{ muscle:250 },
+    target:'player+resource',
+    desc:'Steal 250 of one resource from target player', flavor:'In and out, no witnesses.',
+    apply: (state, playerId, targetId, resource) => {
+      const target = state.players[targetId];
+      if (!target || !resource) return null;
+      const grab = Math.min(target.resources[resource] || 0, 250);
+      target.resources[resource] -= grab;
+      state.players[playerId].resources[resource] = (state.players[playerId].resources[resource] || 0) + grab;
+      return { stolen: grab, resource };
+    }
+  },
+  { id:'plug_drop', name:'Plug Drop', type:'action', rarity:'common', count:3, cost:{ cash:200 },
+    target:null,
+    desc:'Gain +200 of a random resource', flavor:'The plug came through.',
+    apply: (state, playerId) => {
+      const RES = ['cash','muscle','clout','connect'];
+      const r = RES[Math.floor(Math.random() * RES.length)];
+      state.players[playerId].resources[r] += 200;
+      return { gained: r, amount: 200 };
+    }
+  },
+  { id:'glow_up', name:'Glow Up', type:'action', rarity:'uncommon', count:2, cost:{ clout:250 },
+    target:null,
+    desc:'Free 1-tier upgrade on your lowest-tier owned tile', flavor:'New jewelry, new whip, new everything.',
+    apply: (state, playerId) => {
+      const me = state.players[playerId];
+      const candidates = (me?.territories || [])
+        .map(k => state.board.tileMap[k])
+        .filter(t => t && t.tier > 0 && t.tier < 3);
+      if (candidates.length === 0) return null;
+      candidates.sort((a, b) => a.tier - b.tier);
+      const target = candidates[0];
+      target.tier++;
+      return { upgraded: target.key, newTier: target.tier };
+    }
+  },
+  { id:'smoke_out', name:'Smoke Out', type:'action', rarity:'uncommon', count:2, cost:{ muscle:100 },
+    target:'player',
+    desc:'Target discards a random card from their hand', flavor:'Smoke that block.',
+    apply: (state, playerId, targetId) => {
+      const target = state.players[targetId];
+      if (!target || target.hand.length === 0) return null;
+      const idx = Math.floor(Math.random() * target.hand.length);
+      const [card] = target.hand.splice(idx, 1);
+      state.discard.push(card);
+      return { discarded: card.name };
+    }
+  },
+  { id:'loaded', name:'Loaded', type:'action', rarity:'common', count:3, cost:{ cash:300 },
+    target:null,
+    desc:'Draw 3 cards immediately', flavor:'Pockets full, hand stacked.',
+    apply: (state, playerId) => {
+      drawCards(state, playerId, 3);
+      return { drew: 3 };
+    }
+  },
+  { id:'recruit', name:'Recruit', type:'action', rarity:'common', count:3, cost:{ cash:200 },
+    target:null,
+    desc:'Convert 200 Cash → 200 Muscle', flavor:'Brought the team together.',
+    apply: (state, playerId) => {
+      state.players[playerId].resources.muscle += 200;
+      return { gained: 'muscle', amount: 200 };
+    }
+  },
+  { id:'bag_run', name:'Bag Run', type:'action', rarity:'common', count:3, cost:{ muscle:100 },
+    target:null,
+    desc:'Convert 100 Muscle → 200 Cash', flavor:'Move the bag, get the bag.',
+    apply: (state, playerId) => {
+      state.players[playerId].resources.cash += 200;
+      return { gained: 'cash', amount: 200 };
+    }
+  },
+  { id:'network', name:'Network', type:'action', rarity:'common', count:3, cost:{ cash:100 },
+    target:null,
+    desc:'Convert 100 Cash → 200 Connect', flavor:'Made the right calls.',
+    apply: (state, playerId) => {
+      state.players[playerId].resources.connect += 200;
+      return { gained: 'connect', amount: 200 };
     }
   },
 ];

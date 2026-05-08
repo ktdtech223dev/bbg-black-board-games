@@ -87,20 +87,35 @@ export const useBBG = create((set, get) => ({
 
     socket.on('gw:state_update', state => set({ gameState: { ...get().gameState, ...state } }));
 
+    // Helper — merge fresh scores into gameState so any UI reading
+    // gameState.scores stays in sync even before gw:private_state lands.
+    const mergeScores = (data) => {
+      if (!data?.scores) return;
+      set(s => ({
+        gameState: s.gameState ? { ...s.gameState, scores: data.scores } : s.gameState,
+        privateState: s.privateState ? { ...s.privateState, scores: data.scores } : s.privateState,
+      }));
+    };
+
     socket.on('dice_rolled', data => {
       set({ diceResult: data });
+      mergeScores(data);
       get().addEvent({ type: 'dice', data });
       sfx.diceRoll();
-      // Per-tile production indicators
       if (data.productions?.length) get().pushProductions(data.productions);
-      // Per-player roll summary toast for me
       const my = data.collections?.[get().mySocketId];
       if (my && Object.keys(my).length > 0) {
         const summary = Object.entries(my).map(([r,a]) => `+${a} ${r}`).join(' · ');
         get().toast({ type:'gain', icon:'🎲', msg:`Rolled ${data.roll} · ${summary}` });
       }
+      if (data.roll === 7) {
+        sfx.eventTrigger();
+        get().toast({ type:'event', icon:'🚨', msg:`THE FEDS · Roll of 7!`, duration: 4500 });
+      }
+      if (data.raid) get().raidNotice(data.raid, get().mySocketId);
     });
     socket.on('territory_claimed', data => {
+      mergeScores(data);
       get().addEvent({ type: 'claim', data });
       sfx.territoryClaimed();
       if (data.socketId === get().mySocketId) {
@@ -108,6 +123,7 @@ export const useBBG = create((set, get) => ({
       }
     });
     socket.on('territory_developed', data => {
+      mergeScores(data);
       get().addEvent({ type: 'develop', data });
       sfx.develop();
       if (data.socketId === get().mySocketId) {
@@ -116,6 +132,7 @@ export const useBBG = create((set, get) => ({
       }
     });
     socket.on('combat_resolved', data => {
+      mergeScores(data);
       get().addEvent({ type: 'combat', data });
       data.attackerWon ? sfx.attackHit() : sfx.attackMiss();
       const me = get().mySocketId;
@@ -138,6 +155,7 @@ export const useBBG = create((set, get) => ({
       }
     });
     socket.on('card_played', data => {
+      mergeScores(data);
       get().addEvent({ type: 'card', data });
       sfx.cardPlay();
       get().toast({ type:'info', icon:'🃏', msg:`${data.playerName} → ${data.card?.name}` });
@@ -148,6 +166,7 @@ export const useBBG = create((set, get) => ({
       get().toast({ type:'event', icon:'⚡', msg:`EVENT · ${data.card?.name}`, duration: 4500 });
     });
     socket.on('player_eliminated', data => {
+      mergeScores(data);
       get().addEvent({ type: 'eliminated', data });
       sfx.eliminated();
       get().toast({ type:'error', icon:'💀', msg:`${data.playerName} eliminated`, duration: 4500 });
@@ -177,9 +196,15 @@ export const useBBG = create((set, get) => ({
           round: data.round,
           scores: data.scores,
           currentPhase: 'roll',
-        } : s.gameState
+        } : s.gameState,
+        privateState: s.privateState ? {
+          ...s.privateState,
+          scores: data.scores,
+          currentTurn: data.nextPlayer,
+          round: data.round,
+          currentPhase: 'roll',
+        } : s.privateState,
       }));
-      // SFX cue when it becomes my turn
       if (data.nextPlayer === get().mySocketId && prev !== get().mySocketId) {
         sfx.turnStart();
       }
@@ -190,6 +215,34 @@ export const useBBG = create((set, get) => ({
       sfx.error();
       get().toast({ type:'error', icon:'⚠', msg: err.msg || 'Error' });
     });
+
+    socket.on('hustled', data => {
+      get().toast({ type:'info', icon:'💸', msg:`${data.name} hustled · drew 2 cards` });
+    });
+
+    socket.on('scouted', data => {
+      get().toast({ type:'info', icon:'🔭', msg:`${data.name} scouted ${data.targetName}` });
+    });
+
+    socket.on('scout_result', data => {
+      set({ scoutResult: data });
+    });
+  },
+
+  // Helper for v1.5 RAID toast on roll-of-7
+  raidNotice: (raid, mySocketId) => {
+    if (!raid) return;
+    const me = raid.find(r => r.socketId === mySocketId && r.type === 'fine');
+    if (me) {
+      get().toast({ type:'error', icon:'🚨', msg:`THE FEDS · You paid 100 cash`, duration: 4000 });
+    }
+    const skim = raid.find(r => r.type === 'skimmed');
+    if (skim) {
+      const totalSteal = Object.values(skim.steal || {}).reduce((a,b)=>a+b,0);
+      if (totalSteal > 0) {
+        get().toast({ type:'event', icon:'🚨', msg:`THE FEDS · Raid skim: ${totalSteal} resources`, duration: 4000 });
+      }
+    }
   },
 
   addEvent: (event) => {
@@ -392,6 +445,20 @@ export const useBBG = create((set, get) => ({
   useFactionAbility: (options) => {
     get().socket?.emit('gw:use_ability', { options });
   },
+
+  hustle: () => {
+    get().socket?.emit('gw:hustle');
+  },
+
+  scout: (targetId) => {
+    get().socket?.emit('gw:scout', { targetId });
+  },
+
+  scoutResult: null,
+  closeScoutResult: () => set({ scoutResult: null }),
+
+  pickingScoutTarget: false,
+  setPickingScoutTarget: (v) => set({ pickingScoutTarget: !!v }),
 
   proposeTrade: (toId, offer, request) => {
     get().socket?.emit('gw:propose_trade', { toId, offer, request });
