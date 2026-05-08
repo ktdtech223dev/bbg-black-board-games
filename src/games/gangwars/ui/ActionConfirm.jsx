@@ -17,7 +17,9 @@ export default function ActionConfirm() {
 
   const { kind, tile, cost } = pendingAction;
   const accent = ACCENTS[kind];
-  const myRes = privateState?.myResources || {};
+  // Source of truth: gameState.scores so this never disagrees with the side panel.
+  const myScore = gameState?.scores?.find(s => s.socketId === mySocketId);
+  const myRes = myScore?.resources || privateState?.myResources || {};
   const canAfford = Object.entries(cost).every(([r, v]) => (myRes[r] || 0) >= v);
 
   const tier = tile.tier || 0;

@@ -10,6 +10,7 @@ const SECTIONS = [
   { id: 'combat',     label: '⚔️ COMBAT' },
   { id: 'cards',      label: '🃏 CARDS' },
   { id: 'factions',   label: '👑 FACTIONS' },
+  { id: 'paths',      label: '🛤️ PATHS TO WEALTH' },
   { id: 'win',        label: '🏆 WIN CONDITIONS' },
   { id: 'modes',      label: '🌐 PARTY vs ONLINE' },
   { id: 'tips',       label: '💡 STRATEGY' },
@@ -61,6 +62,7 @@ export default function HowToPlay({ embedded = false, onClose }) {
             {active === 'combat'    && <Combat />}
             {active === 'cards'     && <Cards />}
             {active === 'factions'  && <Factions />}
+            {active === 'paths'     && <Paths />}
             {active === 'win'       && <WinConditions />}
             {active === 'modes'     && <Modes />}
             {active === 'tips'      && <Tips />}
@@ -155,7 +157,17 @@ function Flow() {
         <li>Tier 2 Trap → 150 Cash</li>
         <li>Tier 3 Empire → 350 Cash</li>
       </ul>
-      <Note>If a player can't pay, they pay what they can. Going broke <em>and</em> losing your last territory eliminates you.</Note>
+
+      <H3>Anti-softlock safeguards</H3>
+      <P>Tax is balanced so a single bad streak can't lock you out of the game:</P>
+      <ul className="list-disc pl-6 space-y-1 text-sm">
+        <li><strong>Poverty floor:</strong> if your total wealth is under <strong>200</strong>, you pay <strong>no tax</strong> this round. Rebuild without bleeding.</li>
+        <li><strong>Soft cap:</strong> any single tax payment is capped at <strong>25% of your current Cash</strong>. Tier-3 tax (350) still hits rich players for ~350; cash-poor players never lose more than a quarter.</li>
+        <li><strong>Resource floor:</strong> If you're stuck, use <strong>Bag Run</strong> (100 Muscle → 200 Cash) or <strong>HUSTLE</strong> (100 Clout → 2 cards) to break out of a slump without rolling.</li>
+      </ul>
+      <Note color="green">
+        These safeguards mean rolling streaks no longer lock you out. There's always a play.
+      </Note>
     </>
   );
 }
@@ -460,6 +472,50 @@ function Factions() {
           </div>
         </div>
       ))}
+    </>
+  );
+}
+
+function Paths() {
+  return (
+    <>
+      <H>Paths to Wealth & Cards</H>
+      <P>Wealth (sum of all 4 resources) wins Quick/Medium games. Here's every way to grow it — and every way to keep cards in your hand.</P>
+
+      <H3>💰 5 ways to generate wealth</H3>
+      <ol className="list-decimal pl-6 space-y-2 text-sm">
+        <li><strong>Roll matches.</strong> Own a tile, roll its number, get its yield. Highest base income — <em>especially</em> on hot tiles (6/8 = 5/36 odds).</li>
+        <li><strong>Develop tiers.</strong> Tier 2 yields 50% more than Tier 1; Tier 3 yields 100% more. Pay 300/600 once, earn forever.</li>
+        <li><strong>Tax.</strong> Every round, end your turn → opponents with developed tiles pay you cash (50/150/350 by tier).</li>
+        <li><strong>Wild center.</strong> Own (0,0) and you produce on EVERY roll, regardless of dice (5/10/15/20 + bonus card).</li>
+        <li><strong>The Feds skim.</strong> Roll a 7 → you steal 50 of every resource from the wealthiest opponent.</li>
+      </ol>
+
+      <H3>🃏 5 ways to draw cards</H3>
+      <ol className="list-decimal pl-6 space-y-2 text-sm">
+        <li><strong>Auto-draw on roll.</strong> Every dice roll → 1 card to the active player.</li>
+        <li><strong>HUSTLE action.</strong> Spend 100 Clout for 2 cards. Once per turn.</li>
+        <li><strong>Loaded card.</strong> Spend 300 Cash → 3 cards.</li>
+        <li><strong>Come Up card.</strong> Free → draw 3, keep 2.</li>
+        <li><strong>Craigwood passive.</strong> Pick this faction → +1 card every time an event triggers.</li>
+      </ol>
+
+      <H3>🔄 Convert when stuck</H3>
+      <P>Three conversion cards turn excess into something useful:</P>
+      <ul className="list-disc pl-6 space-y-1 text-sm">
+        <li><strong>Bag Run</strong> (100 Muscle → 200 Cash) — turn fighting power into building power</li>
+        <li><strong>Recruit</strong> (200 Cash → 200 Muscle) — turn cash into combat readiness</li>
+        <li><strong>Network</strong> (100 Cash → 200 Connect) — break into the intel game cheaply</li>
+      </ul>
+
+      <H3>⚠️ Avoiding softlocks</H3>
+      <P>The combo of <strong>poverty floor</strong> (no tax under 200 wealth), <strong>soft cap</strong> (25% max per tax), <strong>HUSTLE/SCOUT</strong> baseline actions, and <strong>conversion cards</strong> means you should never be able to do nothing. If you're below 200 wealth, focus on:</P>
+      <ol className="list-decimal pl-6 space-y-1 text-sm">
+        <li>Rolling — you're tax-exempt while you rebuild</li>
+        <li>Trading — propose a swap to anyone for fast cash injection</li>
+        <li>Conversion cards — Bag Run if you have any Muscle</li>
+        <li>Plug Drop (200 Cash → +200 random) — gambles for any resource</li>
+      </ol>
     </>
   );
 }

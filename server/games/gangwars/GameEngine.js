@@ -229,6 +229,11 @@ class GangWarsEngine {
         if (!collections[player.socketId]) collections[player.socketId] = {};
         collections[player.socketId][resource] = (collections[player.socketId][resource] || 0) + yieldAmt;
 
+        // Per-tile cumulative production tracking (resets on ownership change)
+        if (!tile.cumulativeProduction) tile.cumulativeProduction = {};
+        const ownerKey = player.socketId;
+        tile.cumulativeProduction[ownerKey] = (tile.cumulativeProduction[ownerKey] || 0) + yieldAmt;
+
         productions.push({
           tileKey,
           resource,
@@ -632,13 +637,37 @@ class GangWarsEngine {
     return { success: true };
   }
 
+  // ── TAX PHASE (v1.6 anti-softlock rework) ─────────────────
+  // Two safeguards keep poor players from getting starved into a
+  // pure rolling loop:
+  //   1. POVERTY FLOOR: payers with < 200 total wealth pay nothing
+  //      this round. They get to rebuild without hemorrhaging cash.
+  //   2. SOFT CAP: each tax payment is capped at 25% of payer's
+  //      current cash. Tier-3 tax (350) still hits rich players
+  //      almost in full but never empties anyone's wallet.
+  //
+  // The taxer collects exactly what the payer paid (the cap means
+  // both sides can be reduced together — we don't fudge the books).
   processTax(socketId) {
     const taxer = this.state.players[socketId];
     if (!taxer || this.state.roundModifiers.noTax) return;
 
+    const POVERTY_FLOOR = 200;
+    const PAYMENT_CAP_RATIO = 0.25;
+
+    const taxEvents = [];
+
     Object.entries(this.state.players).forEach(([id, player]) => {
       if (id === socketId || player.isEliminated) return;
 
+      const totalWealth = (player.resources.cash || 0) + (player.resources.muscle || 0)
+                       + (player.resources.clout || 0) + (player.resources.connect || 0);
+      if (totalWealth < POVERTY_FLOOR) {
+        taxEvents.push({ payerId: id, exempt: true });
+        return;
+      }
+
+      let totalPaid = 0;
       player.territories.forEach(tileKey => {
         const tile = this.state.board.tileMap[tileKey];
         if (!tile || tile.tier === 0) return;
@@ -649,18 +678,31 @@ class GangWarsEngine {
         let finalTax = taxAmt;
         if (taxer.doubleTaxThisRound) finalTax *= 2;
 
+        // Soft cap: never take more than 25% of payer's current cash.
+        const cap = Math.floor((player.resources.cash || 0) * PAYMENT_CAP_RATIO);
+        finalTax = Math.min(finalTax, cap);
+        if (finalTax <= 0) return;
+
         if (player.taxReversed) {
           player.resources.cash += finalTax;
-          taxer.resources.cash -= Math.min(taxer.resources.cash, finalTax);
+          taxer.resources.cash = Math.max(0, (taxer.resources.cash || 0) - finalTax);
+          totalPaid -= finalTax;
         } else {
           const canPay = Math.min(player.resources.cash, finalTax);
+          if (canPay <= 0) return;
           player.resources.cash -= canPay;
           taxer.resources.cash += canPay;
+          totalPaid += canPay;
           if (player.resources.cash < 0) player.resources.cash = 0;
           this.checkElimination(id);
         }
       });
+      if (totalPaid !== 0) taxEvents.push({ payerId: id, paid: totalPaid });
     });
+
+    if (taxEvents.length > 0) {
+      this.broadcast('tax_resolved', { taxerId: socketId, events: taxEvents });
+    }
   }
 
   checkElimination(socketId) {
@@ -788,6 +830,7 @@ class GangWarsEngine {
           owner: tile.owner, tier: tile.tier,
           neighborhood: tile.neighborhood,
           baseYield: tile.baseYield,
+          cumulativeProduction: tile.cumulativeProduction || {},
         }])
       ),
       size: this.state.board.size,

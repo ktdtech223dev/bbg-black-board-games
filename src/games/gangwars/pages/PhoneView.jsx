@@ -9,6 +9,7 @@ import CardTargetPicker from '../ui/CardTargetPicker';
 import ActionConfirm from '../ui/ActionConfirm';
 import ScoutResult from '../ui/ScoutResult';
 import ScoutPicker from '../ui/ScoutPicker';
+import TileInspector from '../ui/TileInspector';
 import HexBoard from '../board/HexBoard';
 import HowToPlay from '../../../hub/pages/HowToPlay';
 import { PORTRAITS } from '../graphics/portraits';
@@ -50,7 +51,7 @@ export default function PhoneView() {
       </header>
 
       <div className="bg-bbg-panel border-b border-bbg-border p-2">
-        <ResourceBar resources={privateState?.myResources || {}} compact />
+        <ResourceBar resources={myScore?.resources || privateState?.myResources || {}} compact />
       </div>
 
       <nav className="flex bg-bbg-deep border-b border-bbg-border">
@@ -158,6 +159,12 @@ export default function PhoneView() {
             <div className="text-[10px] font-mono text-bbg-muted text-center">
               Tap a tile · pinch/scroll to view
             </div>
+            {selectedTile && gameState?.board?.tileMap?.[selectedTile] && (
+              <TileInspector
+                tile={gameState.board.tileMap[selectedTile]}
+                scores={gameState?.scores || []}
+              />
+            )}
           </div>
         )}
 

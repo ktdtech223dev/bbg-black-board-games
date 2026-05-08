@@ -185,8 +185,11 @@ class SFXEngine {
   }
 
   turnStart() {
-    this.tone(659.25, 0.09, 'sine', 0.35);
-    this.tone(880, 0.12, 'sine', 0.35, 0.07);
+    // Triple ascending chime — distinct, attention-grabbing
+    this.tone(659.25,  0.10, 'triangle', 0.55);          // E5
+    this.tone(880,     0.10, 'triangle', 0.55, 0.10);    // A5
+    this.tone(1108.73, 0.20, 'triangle', 0.65, 0.20);    // C#6
+    this.tone(1318.5,  0.32, 'sine',     0.45, 0.30);    // E6 sustain
   }
 
   ability() {

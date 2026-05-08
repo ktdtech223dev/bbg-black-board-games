@@ -2,8 +2,9 @@ import { useBBG } from '../../../store/useBBG';
 import CardFront from '../graphics/cards/CardFront';
 
 export default function CardHand({ hand = [], compact = false, isMyTurn }) {
-  const { initiateCard, privateState } = useBBG();
-  const myResources = privateState?.myResources || {};
+  const { initiateCard, privateState, gameState, mySocketId } = useBBG();
+  const myScore = gameState?.scores?.find(s => s.socketId === mySocketId);
+  const myResources = myScore?.resources || privateState?.myResources || {};
 
   if (hand.length === 0) {
     return <div className="text-xs text-bbg-muted font-mono py-4 text-center">No cards in hand</div>;

@@ -10,6 +10,7 @@ import CardTargetPicker from '../ui/CardTargetPicker';
 import ActionConfirm from '../ui/ActionConfirm';
 import ScoutResult from '../ui/ScoutResult';
 import ScoutPicker from '../ui/ScoutPicker';
+import TileInspector from '../ui/TileInspector';
 import HowToPlay from '../../../hub/pages/HowToPlay';
 
 export default function GameBoard() {
@@ -28,7 +29,11 @@ export default function GameBoard() {
   const myScore = scores.find(s => s.socketId === mySocketId);
   const currentPlayer = scores.find(s => s.socketId === gameState?.currentTurn);
   const tile = selectedTile && board?.tileMap?.[selectedTile];
-  const myResources = privateState?.myResources || {};
+  // SINGLE SOURCE OF TRUTH: derive my resources from the public scores
+  // array. This array is updated atomically with mergeScores on every
+  // event that carries scores (dice_rolled, turn_ended, etc.) so the
+  // values can never disagree between displays.
+  const myResources = myScore?.resources || privateState?.myResources || {};
 
   const handleTileClick = (t) => {
     setSelectedTile(t);
@@ -129,16 +134,7 @@ export default function GameBoard() {
           </div>
         )}
 
-        {tile && (
-          <div className="bbg-card-base p-3 text-xs space-y-1">
-            <div className="font-display text-bbg-gold">TILE {tile.key}</div>
-            <div>Type: <span className="text-bbg-text uppercase font-mono">{tile.type}</span></div>
-            <div>Token: <span className="font-mono">{tile.token || '—'}</span></div>
-            <div>Tier: <span className="font-mono">{tile.tier || 0}</span></div>
-            <div>Owner: <span className="font-mono">{scores.find(s => s.socketId === tile.owner)?.name || '— neutral —'}</span></div>
-            {tile.neighborhood && <div className="text-bbg-muted">{tile.neighborhood.name}</div>}
-          </div>
-        )}
+        {tile && <TileInspector tile={tile} scores={scores} />}
       </aside>
 
       <ActionConfirm />

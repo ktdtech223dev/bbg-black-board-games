@@ -207,6 +207,25 @@ export const useBBG = create((set, get) => ({
       }));
       if (data.nextPlayer === get().mySocketId && prev !== get().mySocketId) {
         sfx.turnStart();
+        get().toast({ type:'success', icon:'▶', msg:`YOUR TURN · Round ${data.round}`, duration: 4000 });
+      }
+    });
+
+    socket.on('tax_resolved', data => {
+      const me = get().mySocketId;
+      const myEvent = data.events?.find(e => e.payerId === me);
+      if (myEvent) {
+        if (myEvent.exempt) {
+          get().toast({ type:'success', icon:'🛡️', msg:'TAX EXEMPT · poverty floor (<200 wealth)' });
+        } else if (myEvent.paid > 0) {
+          get().toast({ type:'error', icon:'💸', msg:`Paid ${myEvent.paid} cash in tax` });
+        }
+      }
+      if (data.taxerId === me) {
+        const total = (data.events || []).reduce((s, e) => s + (e.paid || 0), 0);
+        if (total > 0) {
+          get().toast({ type:'gain', icon:'💰', msg:`Collected ${total} cash in tax` });
+        }
       }
     });
 
