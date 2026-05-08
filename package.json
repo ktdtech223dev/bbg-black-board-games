@@ -1,6 +1,6 @@
 {
   "name": "bbg-black-board-games",
-  "version": "1.6.0",
+  "version": "1.7.0",
   "description": "BBG (Black Board Games) — N Games hub & party platform",
   "main": "electron/main.js",
   "scripts": {
