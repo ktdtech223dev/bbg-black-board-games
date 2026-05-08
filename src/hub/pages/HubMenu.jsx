@@ -70,6 +70,9 @@ export default function HubMenu() {
           </div>
 
           <div className="flex flex-wrap justify-center gap-3">
+            <button className="btn btn-primary" onClick={() => setPage('how_to_play')}>
+              📖 HOW TO PLAY
+            </button>
             <button className="btn" onClick={() => setPage('standings')}>
               📊 SEASON STANDINGS
             </button>

@@ -5,6 +5,8 @@ import CardHand from '../ui/CardHand';
 import DiceFace from '../graphics/dice/DiceFace';
 import TradeModal from '../ui/TradeModal';
 import RadioWidget from '../ui/RadioWidget';
+import CardTargetPicker from '../ui/CardTargetPicker';
+import HowToPlay from '../../../hub/pages/HowToPlay';
 import { PORTRAITS } from '../graphics/portraits';
 
 export default function PhoneView() {
@@ -12,6 +14,7 @@ export default function PhoneView() {
     gameState, privateState, mySocketId, recentEvents,
     rollDice, claimTerritory, developTerritory, attackTile,
     endTurn, useFactionAbility, factionsList, fetchFactions,
+    helpOpen, setHelpOpen,
   } = useBBG();
   const [tab, setTab] = useState('act');
   const [tradeOpen, setTradeOpen] = useState(false);
@@ -131,7 +134,15 @@ export default function PhoneView() {
       </main>
 
       <TradeModal open={tradeOpen} onClose={() => setTradeOpen(false)} />
+      <CardTargetPicker />
       <RadioWidget position="bottom-right" />
+
+      <button
+        onClick={() => setHelpOpen(true)}
+        className="fixed top-3 right-3 z-30 bbg-card-base w-10 h-10 flex items-center justify-center text-xl"
+        title="How to play"
+      >?</button>
+      {helpOpen && <HowToPlay onClose={() => setHelpOpen(false)} embedded />}
     </div>
   );
 }

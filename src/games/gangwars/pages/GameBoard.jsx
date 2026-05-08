@@ -7,12 +7,15 @@ import DiceRoller from '../ui/DiceRoller';
 import ResourceBar from '../ui/ResourceBar';
 import AttackModal from '../ui/AttackModal';
 import RadioWidget from '../ui/RadioWidget';
+import CardTargetPicker from '../ui/CardTargetPicker';
+import HowToPlay from '../../../hub/pages/HowToPlay';
 
 export default function GameBoard() {
   const {
     gameState, privateState, mySocketId, recentEvents,
     selectedTile, setSelectedTile, currentAction, setCurrentAction,
     diceResult, rollDice, claimTerritory, developTerritory, attackTile, endTurn,
+    pendingCard, resolveCardTarget, helpOpen, setHelpOpen,
   } = useBBG();
 
   const [attackTarget, setAttackTarget] = useState(null);
@@ -29,6 +32,15 @@ export default function GameBoard() {
   const handleTileClick = (t) => {
     setSelectedTile(t);
     if (!isMyTurn || phase !== 'act') return;
+
+    // Card targeting mode — validates filter then plays
+    if (currentAction === 'card_target' && pendingCard) {
+      const filter = pendingCard.card.target;
+      if (!isValidCardTile(t, filter, mySocketId)) return;
+      resolveCardTarget({ targetId: t.key });
+      return;
+    }
+
     if (currentAction === 'claim' && !t.owner) claimTerritory(t.key);
     else if (currentAction === 'develop' && t.owner === mySocketId) developTerritory(t.key);
     else if (currentAction === 'attack' && t.owner && t.owner !== mySocketId) setAttackTarget(t);
@@ -131,7 +143,27 @@ export default function GameBoard() {
         />
       )}
 
+      <CardTargetPicker />
       <RadioWidget position="bottom-left" />
+
+      <button
+        onClick={() => setHelpOpen(true)}
+        className="fixed top-4 right-4 z-30 bbg-card-base w-12 h-12 flex items-center justify-center text-2xl hover:scale-110 transition"
+        title="How to play"
+      >
+        ?
+      </button>
+      {helpOpen && <HowToPlay onClose={() => setHelpOpen(false)} embedded />}
     </div>
   );
+}
+
+function isValidCardTile(tile, filter, mySocketId) {
+  if (!tile) return false;
+  switch (filter) {
+    case 'tile_enemy':    return tile.owner && tile.owner !== mySocketId && tile.tier > 0;
+    case 'tile_enemy_t1': return tile.owner && tile.owner !== mySocketId && tile.tier === 1;
+    case 'tile_any':      return !!tile.owner;
+    default:              return true;
+  }
 }

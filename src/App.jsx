@@ -7,6 +7,7 @@ import OnlineLobby from './hub/pages/OnlineLobby';
 import PlayerProfile from './hub/pages/PlayerProfile';
 import SeasonStandings from './hub/pages/SeasonStandings';
 import WeeklyMapsPage from './hub/pages/WeeklyMaps';
+import HowToPlay from './hub/pages/HowToPlay';
 import GangWars from './games/gangwars/GangWars';
 import PhoneClient from './hub/components/PhoneClient';
 
@@ -33,6 +34,7 @@ export default function App() {
           {currentPage === 'profile' && <PlayerProfile />}
           {currentPage === 'standings' && <SeasonStandings />}
           {currentPage === 'weekly_maps' && <WeeklyMapsPage />}
+          {currentPage === 'how_to_play' && <HowToPlay />}
           {currentPage.startsWith('gw_') && <GangWars />}
         </>
       )}

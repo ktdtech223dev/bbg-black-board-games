@@ -33,6 +33,8 @@ export const useBBG = create((set, get) => ({
   recentEvents: [],
   gameOverData: null,
   lastError: null,
+  pendingCard: null,    // { card, mode: 'pick_player' | 'pick_tile' | 'pick_player_resource' }
+  helpOpen: false,
 
   factionsList: [],
   mapsList: { permanent: [], weekly: [], seasonal: [] },
@@ -258,7 +260,35 @@ export const useBBG = create((set, get) => ({
 
   playCard: (cardInstanceId, options) => {
     get().socket?.emit('gw:play_card', { cardInstanceId, options });
+    set({ pendingCard: null, currentAction: null });
   },
+
+  // Initiate playing a card. If it needs a target, parks it in pendingCard
+  // and prompts the user; otherwise plays immediately.
+  initiateCard: (card) => {
+    const t = card?.target;
+    if (!t) {
+      get().playCard(card.instanceId, {});
+      return;
+    }
+    if (t === 'player' || t === 'player+resource') {
+      set({ pendingCard: { card, mode: t === 'player' ? 'pick_player' : 'pick_player_resource' } });
+    } else if (t.startsWith('tile')) {
+      set({ pendingCard: { card, mode: 'pick_tile' }, currentAction: 'card_target' });
+    } else {
+      get().playCard(card.instanceId, {});
+    }
+  },
+
+  resolveCardTarget: (options) => {
+    const { pendingCard } = get();
+    if (!pendingCard) return;
+    get().playCard(pendingCard.card.instanceId, options);
+  },
+
+  cancelCard: () => set({ pendingCard: null, currentAction: null }),
+
+  setHelpOpen: (v) => set({ helpOpen: v }),
 
   useFactionAbility: (options) => {
     get().socket?.emit('gw:use_ability', { options });

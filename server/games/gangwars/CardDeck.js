@@ -1,5 +1,14 @@
+// target: how the card asks for input from the player.
+//   null              — no input needed, plays immediately
+//   'player'          — pick another live player
+//   'tile_enemy'      — pick a tile owned by another player (any tier > 0)
+//   'tile_enemy_t1'   — pick an enemy tier-1 tile
+//   'tile_any'        — pick any tile (typically owned)
+//   'player+resource' — pick player + which resource to demand
+
 const ACTION_CARDS = [
   { id:'shakedown', name:'Shakedown', type:'action', rarity:'common', count:3, cost:{ muscle:100 },
+    target:'player',
     desc:"Collect 40% of target player's Cash", flavor:'Pay up or get touched.',
     apply: (state, playerId, targetId) => {
       const target = state.players[targetId];
@@ -11,7 +20,8 @@ const ACTION_CARDS = [
     }
   },
   { id:'drive_by', name:'Drive-By', type:'action', rarity:'uncommon', count:2, cost:{ muscle:150 },
-    desc:'Destroy one tier of development on any district', flavor:'Slow down. Aim. Speed up.',
+    target:'tile_enemy',
+    desc:'Destroy one tier of development on any enemy district', flavor:'Slow down. Aim. Speed up.',
     apply: (state, playerId, tileKey) => {
       const tile = state.board.tileMap[tileKey];
       if (tile && tile.owner && tile.owner !== playerId && tile.tier > 0) {
@@ -21,19 +31,23 @@ const ACTION_CARDS = [
     }
   },
   { id:'under_the_table', name:'Under the Table', type:'action', rarity:'common', count:3, cost:{},
+    target:null,
     desc:'Your next trade this round is tax-free', flavor:'No receipts. No records.',
     apply: (state, playerId) => { state.players[playerId].taxFreeTrades = 1; }
   },
   { id:'block_party', name:'Block Party', type:'action', rarity:'rare', count:2, cost:{ clout:200 },
+    target:null,
     desc:'All players on your districts pay double tax this round', flavor:"It's a celebration... for your wallet.",
     apply: (state, playerId) => { state.players[playerId].doubleTaxThisRound = true; }
   },
   { id:'witness_protection', name:'Witness Protection', type:'action', rarity:'rare', count:2, cost:{ connect:200 },
+    target:null,
     desc:'Immune to all attacks for 1 full round', flavor:'Relocated. Untouchable.',
     apply: (state, playerId) => { state.players[playerId].immuneUntilRound = state.round + 1; }
   },
   { id:'come_up', name:'Come Up', type:'action', rarity:'common', count:4, cost:{},
-    desc:'Draw 3 cards, keep 2', flavor:'Every dog has its day.',
+    target:null,
+    desc:'Draw 3 cards, keep 2 (auto)', flavor:'Every dog has its day.',
     apply: (state, playerId) => {
       const drawn = [];
       for (let i = 0; i < 3; i++) {
@@ -47,13 +61,15 @@ const ACTION_CARDS = [
     }
   },
   { id:'snitch', name:'Snitch', type:'action', rarity:'uncommon', count:2, cost:{ connect:100 },
+    target:'player',
     desc:"Reveal any one player's full hand to ALL players", flavor:'12 in the building.',
     apply: (state, playerId, targetId) => {
       return { type:'revealHand', target:targetId, hand: state.players[targetId]?.hand || [] };
     }
   },
   { id:'hostile_takeover', name:'Hostile Takeover', type:'action', rarity:'rare', count:2, cost:{ muscle:500, cash:300 },
-    desc:'Claim any Tier 1 district without combat if you have 5 Muscle resources', flavor:'Corporate raiders in Timbs.',
+    target:'tile_enemy_t1',
+    desc:'Claim any Tier 1 (Operation) enemy district without combat', flavor:'Corporate raiders in Timbs.',
     apply: (state, playerId, tileKey) => {
       const tile = state.board.tileMap[tileKey];
       if (tile && tile.tier === 1 && tile.owner !== playerId) {
@@ -68,11 +84,13 @@ const ACTION_CARDS = [
     }
   },
   { id:'flip_script', name:'Flip the Script', type:'action', rarity:'rare', count:2, cost:{ clout:300 },
+    target:null,
     desc:'Reverse tax payments this round — you collect from the taxer', flavor:'Plot twist.',
     apply: (state, playerId) => { state.players[playerId].taxReversed = true; }
   },
   { id:'bail_money', name:'Bail Money', type:'action', rarity:'uncommon', count:2, cost:{ cash:400 },
-    desc:"Return one eliminated player's last district to unclaimed", flavor:'They out. The block up for grabs.',
+    target:'tile_enemy',
+    desc:'Return one enemy district to unclaimed', flavor:'They out. The block up for grabs.',
     apply: (state, playerId, tileKey) => {
       const tile = state.board.tileMap[tileKey];
       if (tile) {
@@ -86,7 +104,8 @@ const ACTION_CARDS = [
     }
   },
   { id:'extortion', name:'Extortion', type:'action', rarity:'uncommon', count:3, cost:{ muscle:200 },
-    desc:'Target player must give you 200 of any one resource or lose a tier', flavor:'Pay the toll.',
+    target:'player+resource',
+    desc:'Target player must give you 200 of one resource or lose a tier', flavor:'Pay the toll.',
     apply: (state, playerId, targetId, resource) => {
       const target = state.players[targetId];
       if (!target) return null;
@@ -103,9 +122,32 @@ const ACTION_CARDS = [
     }
   },
   { id:'territory_swap', name:'Territory Swap', type:'action', rarity:'rare', count:1, cost:{ connect:400 },
-    desc:"Trade one of your districts for one of another player's — both must agree", flavor:'Business is business.',
-    apply: (state, playerId, targetId, myTile, theirTile) => {
-      return { type:'proposeTrade', initiator:playerId, target:targetId, offer:myTile, request:theirTile };
+    target:'tile_enemy',
+    desc:"Force-trade your last claimed tile for any enemy tile", flavor:'Business is business.',
+    apply: (state, playerId, theirTileKey) => {
+      const me = state.players[playerId];
+      if (!me || me.territories.length === 0) return null;
+      const myTileKey = me.territories[me.territories.length - 1];
+      const myTile = state.board.tileMap[myTileKey];
+      const theirTile = state.board.tileMap[theirTileKey];
+      if (!myTile || !theirTile || theirTile.owner === playerId) return null;
+      const theirOwner = theirTile.owner;
+      const them = state.players[theirOwner];
+      if (!them) return null;
+
+      // Swap ownership and tiers
+      me.territories = me.territories.filter(t => t !== myTileKey);
+      me.territories.push(theirTileKey);
+      them.territories = them.territories.filter(t => t !== theirTileKey);
+      them.territories.push(myTileKey);
+      const myTier = myTile.tier;
+      myTile.owner = theirOwner;
+      theirTile.owner = playerId;
+      myTile.tier = theirTile.tier;
+      theirTile.tier = myTier;
+      myTile.heldRounds = { [theirOwner]: 0 };
+      theirTile.heldRounds = { [playerId]: 0 };
+      return { type:'swap', myTile: theirTileKey, theirTile: myTileKey };
     }
   },
 ];
