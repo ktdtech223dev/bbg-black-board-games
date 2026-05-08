@@ -175,6 +175,7 @@ class GangWarsEngine {
     const roll = d1 + d2;
 
     const collections = {};
+    const productions = []; // [{ tileKey, resource, amount, ownerSocketId, q, r }]
     const modifier = this.state.roundModifiers.resourceMultiplier || 1;
 
     Object.values(this.state.players).filter(p => !p.isEliminated).forEach(player => {
@@ -190,6 +191,15 @@ class GangWarsEngine {
 
         if (!collections[player.socketId]) collections[player.socketId] = {};
         collections[player.socketId][resource] = (collections[player.socketId][resource] || 0) + yieldAmt;
+
+        productions.push({
+          tileKey,
+          resource,
+          amount: yieldAmt,
+          ownerSocketId: player.socketId,
+          q: tile.q,
+          r: tile.r,
+        });
       });
 
       if (player.faction === 'compton') {
@@ -216,7 +226,7 @@ class GangWarsEngine {
     this.state.currentPhase = 'act';
 
     this.broadcast('dice_rolled', {
-      roll, d1, d2, collections,
+      roll, d1, d2, collections, productions,
       currentPlayer: this.currentPlayerSocket(),
     });
 

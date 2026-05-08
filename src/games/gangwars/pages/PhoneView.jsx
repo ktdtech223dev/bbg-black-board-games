@@ -6,15 +6,17 @@ import DiceFace from '../graphics/dice/DiceFace';
 import TradeModal from '../ui/TradeModal';
 import RadioWidget from '../ui/RadioWidget';
 import CardTargetPicker from '../ui/CardTargetPicker';
+import ActionConfirm from '../ui/ActionConfirm';
+import HexBoard from '../board/HexBoard';
 import HowToPlay from '../../../hub/pages/HowToPlay';
 import { PORTRAITS } from '../graphics/portraits';
 
 export default function PhoneView() {
   const {
     gameState, privateState, mySocketId, recentEvents,
-    rollDice, claimTerritory, developTerritory, attackTile,
-    endTurn, useFactionAbility, factionsList, fetchFactions,
-    helpOpen, setHelpOpen,
+    rollDice, endTurn, useFactionAbility, factionsList, fetchFactions,
+    pendingCard, currentAction, setCurrentAction, resolveCardTarget, pendActionForTile,
+    productions, helpOpen, setHelpOpen, selectedTile, setSelectedTile,
   } = useBBG();
   const [tab, setTab] = useState('act');
   const [tradeOpen, setTradeOpen] = useState(false);
@@ -88,9 +90,15 @@ export default function PhoneView() {
 
             {isMyTurn && phase === 'act' && (
               <>
-                <ActionButton emoji="🚩" label="CLAIM TERRITORY" desc="Tap then pick an unclaimed tile (board tab)" />
-                <ActionButton emoji="🏗️" label="DEVELOP" desc="Tap then pick your tile (board tab)" />
-                <ActionButton emoji="⚔️" label="ATTACK" desc="Tap then pick enemy tile (board tab)" />
+                <ActBtn label="CLAIM TERRITORY" emoji="🚩" tone="#c8a84b"
+                  active={currentAction === 'claim'}
+                  onClick={() => { setCurrentAction(currentAction === 'claim' ? null : 'claim'); setTab('board'); }} />
+                <ActBtn label="DEVELOP" emoji="🏗️" tone="#cc8822"
+                  active={currentAction === 'develop'}
+                  onClick={() => { setCurrentAction(currentAction === 'develop' ? null : 'develop'); setTab('board'); }} />
+                <ActBtn label="ATTACK" emoji="⚔️" tone="#cc2222"
+                  active={currentAction === 'attack'}
+                  onClick={() => { setCurrentAction(currentAction === 'attack' ? null : 'attack'); setTab('board'); }} />
                 <button className="btn w-full text-base py-3" onClick={() => useFactionAbility({})}>
                   ⚡ {factionData?.active || 'FACTION ABILITY'}
                 </button>
@@ -103,15 +111,41 @@ export default function PhoneView() {
         )}
 
         {tab === 'board' && (
-          <div className="text-center text-sm text-bbg-muted">
-            <div className="bbg-card-base p-4">
-              Use the TV/host screen to view the full board.
-              <div className="mt-3 grid grid-cols-2 gap-2">
-                {(privateState?.myTerritories || []).map(k => (
-                  <div key={k} className="bg-bbg-raised p-2 rounded font-mono text-xs">{k}</div>
-                ))}
+          <div className="space-y-2">
+            {currentAction && (
+              <div className="bbg-card-base p-2 text-center text-xs font-mono text-bbg-gold">
+                {currentAction === 'claim' && '🚩 TAP AN UNCLAIMED TILE'}
+                {currentAction === 'develop' && '🏗️ TAP YOUR OWNED TILE'}
+                {currentAction === 'attack' && '⚔️ TAP AN ENEMY TILE'}
+                {currentAction === 'card_target' && pendingCard && `🎯 TAP A TILE FOR ${pendingCard.card.name}`}
               </div>
-              {(privateState?.myTerritories || []).length === 0 && <div className="font-mono text-xs mt-3">No territories yet</div>}
+            )}
+            <div className="bbg-card-base p-1 overflow-hidden flex justify-center">
+              {gameState?.board ? (
+                <HexBoard
+                  board={gameState.board}
+                  players={gameState.scores}
+                  selectedTile={selectedTile}
+                  mySocketId={mySocketId}
+                  productions={productions}
+                  width={Math.min(window.innerWidth - 24, 380)}
+                  height={Math.min(window.innerWidth - 24, 380)}
+                  onTileClick={(t) => {
+                    setSelectedTile(t);
+                    if (!isMyTurn || phase !== 'act') return;
+                    if (currentAction === 'card_target' && pendingCard) {
+                      resolveCardTarget({ targetId: t.key });
+                      return;
+                    }
+                    if (currentAction === 'claim' && !t.owner) pendActionForTile('claim', t);
+                    else if (currentAction === 'develop' && t.owner === mySocketId && t.tier < 3) pendActionForTile('develop', t);
+                    else if (currentAction === 'attack' && t.owner && t.owner !== mySocketId) pendActionForTile('attack', t);
+                  }}
+                />
+              ) : <div className="text-bbg-muted text-sm py-8">Loading board…</div>}
+            </div>
+            <div className="text-[10px] font-mono text-bbg-muted text-center">
+              Tap a tile · pinch/scroll to view
             </div>
           </div>
         )}
@@ -135,6 +169,7 @@ export default function PhoneView() {
 
       <TradeModal open={tradeOpen} onClose={() => setTradeOpen(false)} />
       <CardTargetPicker />
+      <ActionConfirm />
       <RadioWidget position="bottom-right" />
 
       <button
@@ -147,11 +182,21 @@ export default function PhoneView() {
   );
 }
 
-function ActionButton({ emoji, label, desc }) {
+function ActBtn({ emoji, label, tone, active, onClick }) {
   return (
-    <div className="bbg-card-base p-3">
-      <div className="font-display text-lg">{emoji} {label}</div>
-      <div className="text-xs text-bbg-muted">{desc}</div>
-    </div>
+    <button
+      onClick={onClick}
+      className="w-full text-left p-3 rounded transition flex items-center gap-3"
+      style={{
+        background: active ? `${tone}33` : 'var(--bbg-raised)',
+        border: `1px solid ${active ? tone : 'var(--bbg-border)'}`,
+      }}
+    >
+      <span className="text-2xl">{emoji}</span>
+      <div className="flex-1">
+        <div className="font-display text-base tracking-wider" style={{ color: active ? tone : 'var(--bbg-text)' }}>{label}</div>
+        <div className="text-[10px] text-bbg-muted">{active ? 'Tap a tile on the board' : 'Tap to select this action'}</div>
+      </div>
+    </button>
   );
 }

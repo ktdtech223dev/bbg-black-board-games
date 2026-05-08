@@ -2,9 +2,12 @@ import { useRef, useEffect, useCallback } from 'react';
 import { hexToPixel, hexCorners, pixelToHex, HEX_SIZE } from './HexGrid';
 import { DISTRICT_COLORS, TIER_COLORS, TIER_LABELS } from './HexTile';
 
+const RES_GLYPH = { cash: '$', muscle: 'M', clout: 'C', connect: 'K' };
+const RES_COLOR = { cash: '#22cc55', muscle: '#cc2222', clout: '#cc88ff', connect: '#22aacc' };
+
 export default function HexBoard({
   board, players, currentPlayer, selectedTile, onTileClick,
-  mySocketId, width = 800, height = 600,
+  mySocketId, productions = [], width = 800, height = 600,
 }) {
   const canvasRef = useRef(null);
   const animRef = useRef(null);
@@ -119,8 +122,43 @@ export default function HexBoard({
       }
     }
 
+    // Floating resource indicators (production FX)
+    if (productions?.length) {
+      const now = Date.now();
+      productions.forEach(p => {
+        const elapsed = now - (p.createdAt || now);
+        const totalDur = 2000;
+        if (elapsed > totalDur) return;
+        const t = elapsed / totalDur;        // 0 → 1
+        const tile = board.tileMap[p.tileKey];
+        if (!tile) return;
+        const { x, y } = hexToPixel(tile.q, tile.r);
+        const cx = ox + x;
+        const cy = oy + y;
+        const lift = -50 * t;                // px
+        const alpha = 1 - Math.pow(t, 1.6);
+        const color = RES_COLOR[p.resource] || '#ffffff';
+        const scale = 0.85 + 0.4 * (1 - Math.abs(0.5 - t) * 2);
+        const fontSize = Math.floor(16 * scale);
+
+        const text = `+${p.amount} ${RES_GLYPH[p.resource] || '?'}`;
+        ctx.save();
+        ctx.globalAlpha = Math.max(0, alpha);
+        ctx.font = `bold ${fontSize}px "Bebas Neue", sans-serif`;
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        // dark stroke for legibility
+        ctx.strokeStyle = 'rgba(0,0,0,0.8)';
+        ctx.lineWidth = 3;
+        ctx.strokeText(text, cx, cy + lift);
+        ctx.fillStyle = color;
+        ctx.fillText(text, cx, cy + lift);
+        ctx.restore();
+      });
+    }
+
     animRef.current = requestAnimationFrame(drawBoard);
-  }, [board, players, selectedTile, mySocketId, width, height, getCenterOffset]);
+  }, [board, players, selectedTile, mySocketId, productions, width, height, getCenterOffset]);
 
   useEffect(() => {
     animRef.current = requestAnimationFrame(drawBoard);

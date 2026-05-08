@@ -34,7 +34,10 @@ export const useBBG = create((set, get) => ({
   gameOverData: null,
   lastError: null,
   pendingCard: null,    // { card, mode: 'pick_player' | 'pick_tile' | 'pick_player_resource' }
+  pendingAction: null,  // { kind: 'claim'|'develop'|'attack', tile, cost }
   helpOpen: false,
+  toasts: [],
+  productions: [],      // [{ id, tileKey, resource, amount, ownerSocketId, expires }]
 
   factionsList: [],
   mapsList: { permanent: [], weekly: [], seasonal: [] },
@@ -88,30 +91,66 @@ export const useBBG = create((set, get) => ({
       set({ diceResult: data });
       get().addEvent({ type: 'dice', data });
       sfx.diceRoll();
+      // Per-tile production indicators
+      if (data.productions?.length) get().pushProductions(data.productions);
+      // Per-player roll summary toast for me
+      const my = data.collections?.[get().mySocketId];
+      if (my && Object.keys(my).length > 0) {
+        const summary = Object.entries(my).map(([r,a]) => `+${a} ${r}`).join(' · ');
+        get().toast({ type:'gain', icon:'🎲', msg:`Rolled ${data.roll} · ${summary}` });
+      }
     });
     socket.on('territory_claimed', data => {
       get().addEvent({ type: 'claim', data });
       sfx.territoryClaimed();
+      if (data.socketId === get().mySocketId) {
+        get().toast({ type:'success', icon:'🚩', msg:`Claimed ${data.tileKey}` });
+      }
     });
     socket.on('territory_developed', data => {
       get().addEvent({ type: 'develop', data });
       sfx.develop();
+      if (data.socketId === get().mySocketId) {
+        const names = ['','Operation','Trap','Empire'];
+        get().toast({ type:'success', icon:'🏗️', msg:`${data.tileKey} → ${names[data.tier]}` });
+      }
     });
     socket.on('combat_resolved', data => {
       get().addEvent({ type: 'combat', data });
       data.attackerWon ? sfx.attackHit() : sfx.attackMiss();
+      const me = get().mySocketId;
+      if (data.attackerId === me) {
+        get().toast({
+          type: data.attackerWon ? 'success' : 'error',
+          icon: data.attackerWon ? '⚔️' : '✗',
+          msg: data.attackerWon
+            ? `Took ${data.tileKey} · ${data.atkRoll} vs ${data.defRoll}`
+            : `Attack failed · ${data.atkRoll} vs ${data.defRoll}`
+        });
+      } else if (data.defenderId === me) {
+        get().toast({
+          type: data.attackerWon ? 'error' : 'success',
+          icon: data.attackerWon ? '💥' : '🛡️',
+          msg: data.attackerWon
+            ? `${data.tileKey} taken from you`
+            : `Defended ${data.tileKey} · ${data.defRoll} vs ${data.atkRoll}`
+        });
+      }
     });
     socket.on('card_played', data => {
       get().addEvent({ type: 'card', data });
       sfx.cardPlay();
+      get().toast({ type:'info', icon:'🃏', msg:`${data.playerName} → ${data.card?.name}` });
     });
     socket.on('event_triggered', data => {
       get().addEvent({ type: 'event', data });
       sfx.eventTrigger();
+      get().toast({ type:'event', icon:'⚡', msg:`EVENT · ${data.card?.name}`, duration: 4500 });
     });
     socket.on('player_eliminated', data => {
       get().addEvent({ type: 'eliminated', data });
       sfx.eliminated();
+      get().toast({ type:'error', icon:'💀', msg:`${data.playerName} eliminated`, duration: 4500 });
     });
     socket.on('ability_used', data => {
       get().addEvent({ type: 'ability', data });
@@ -126,6 +165,7 @@ export const useBBG = create((set, get) => ({
     socket.on('game_over', data => {
       set({ currentPage: 'gw_over', gameOverData: data });
       sfx.victory();
+      get().toast({ type:'success', icon:'🏆', msg:`${data.winner?.name || 'Someone'} wins!`, duration: 6000 });
     });
 
     socket.on('turn_ended', data => {
@@ -147,9 +187,8 @@ export const useBBG = create((set, get) => ({
 
     socket.on('hub:error', err => {
       console.warn('Hub error:', err);
-      set({ lastError: err.msg || 'Error' });
       sfx.error();
-      setTimeout(() => set({ lastError: null }), 3500);
+      get().toast({ type:'error', icon:'⚠', msg: err.msg || 'Error' });
     });
   },
 
@@ -289,6 +328,66 @@ export const useBBG = create((set, get) => ({
   cancelCard: () => set({ pendingCard: null, currentAction: null }),
 
   setHelpOpen: (v) => set({ helpOpen: v }),
+
+  // ── TOAST API ───────────────────────
+  toast: (opts) => {
+    const id = Date.now() + Math.random();
+    const toast = {
+      id,
+      type: 'info',
+      duration: 3000,
+      ...(typeof opts === 'string' ? { msg: opts } : opts),
+    };
+    set(s => ({ toasts: [...s.toasts, toast].slice(-6) }));
+    setTimeout(() => {
+      set(s => ({ toasts: s.toasts.filter(t => t.id !== id) }));
+    }, toast.duration);
+  },
+  dismissToast: (id) => set(s => ({ toasts: s.toasts.filter(t => t.id !== id) })),
+
+  // ── ACTION CONFIRM ──────────────────
+  pendActionForTile: (kind, tile) => {
+    const state = get();
+    const tier = tile?.tier || 0;
+    let cost = {};
+    if (kind === 'claim') cost = { cash: 100 };
+    else if (kind === 'develop') {
+      const next = (tile?.tier || 1) + 1;
+      cost = { cash: { 2: 300, 3: 600 }[next] || 0 };
+    }
+    else if (kind === 'attack') {
+      const mod = state.gameState?.roundModifiers?.attackCostMultiplier || 1;
+      cost = { muscle: Math.floor(200 * Math.max(1, tier) * mod) };
+    }
+    set({ pendingAction: { kind, tile, cost } });
+  },
+  cancelPendingAction: () => set({ pendingAction: null }),
+  confirmPendingAction: () => {
+    const { pendingAction } = get();
+    if (!pendingAction) return;
+    const { kind, tile } = pendingAction;
+    set({ pendingAction: null, currentAction: null, selectedTile: null });
+    if (kind === 'claim') get().socket?.emit('gw:claim', { tileKey: tile.key });
+    else if (kind === 'develop') get().socket?.emit('gw:develop', { tileKey: tile.key });
+    else if (kind === 'attack') get().socket?.emit('gw:attack', { tileKey: tile.key });
+  },
+
+  pushProductions: (productions) => {
+    if (!productions?.length) return;
+    const now = Date.now();
+    const expires = now + 2400;
+    const items = productions.map(p => ({
+      id: now + Math.random(),
+      ...p,
+      createdAt: now,
+      expires,
+    }));
+    set(s => ({ productions: [...s.productions, ...items].slice(-40) }));
+    setTimeout(() => {
+      const cutoff = Date.now() - 100;
+      set(s => ({ productions: s.productions.filter(p => p.expires > cutoff) }));
+    }, 2500);
+  },
 
   useFactionAbility: (options) => {
     get().socket?.emit('gw:use_ability', { options });

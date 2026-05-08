@@ -5,20 +5,19 @@ import TurnOrder from '../ui/TurnOrder';
 import EventBanner from '../ui/EventBanner';
 import DiceRoller from '../ui/DiceRoller';
 import ResourceBar from '../ui/ResourceBar';
-import AttackModal from '../ui/AttackModal';
 import RadioWidget from '../ui/RadioWidget';
 import CardTargetPicker from '../ui/CardTargetPicker';
+import ActionConfirm from '../ui/ActionConfirm';
 import HowToPlay from '../../../hub/pages/HowToPlay';
 
 export default function GameBoard() {
   const {
     gameState, privateState, mySocketId, recentEvents,
     selectedTile, setSelectedTile, currentAction, setCurrentAction,
-    diceResult, rollDice, claimTerritory, developTerritory, attackTile, endTurn,
-    pendingCard, resolveCardTarget, helpOpen, setHelpOpen,
+    diceResult, rollDice, endTurn,
+    pendingCard, resolveCardTarget, pendActionForTile,
+    productions, helpOpen, setHelpOpen,
   } = useBBG();
-
-  const [attackTarget, setAttackTarget] = useState(null);
 
   const board = gameState?.board;
   const scores = gameState?.scores || [];
@@ -41,9 +40,10 @@ export default function GameBoard() {
       return;
     }
 
-    if (currentAction === 'claim' && !t.owner) claimTerritory(t.key);
-    else if (currentAction === 'develop' && t.owner === mySocketId) developTerritory(t.key);
-    else if (currentAction === 'attack' && t.owner && t.owner !== mySocketId) setAttackTarget(t);
+    // All three actions now go through the confirmation modal
+    if (currentAction === 'claim' && !t.owner) pendActionForTile('claim', t);
+    else if (currentAction === 'develop' && t.owner === mySocketId && t.tier < 3) pendActionForTile('develop', t);
+    else if (currentAction === 'attack' && t.owner && t.owner !== mySocketId) pendActionForTile('attack', t);
   };
 
   return (
@@ -71,6 +71,7 @@ export default function GameBoard() {
             selectedTile={selectedTile}
             onTileClick={handleTileClick}
             mySocketId={mySocketId}
+            productions={productions}
             width={Math.min(960, window.innerWidth - 640)}
             height={Math.max(600, window.innerHeight - 80)}
           />
@@ -135,14 +136,7 @@ export default function GameBoard() {
         )}
       </aside>
 
-      {attackTarget && (
-        <AttackModal
-          tile={attackTarget}
-          onCancel={() => setAttackTarget(null)}
-          onConfirm={() => { attackTile(attackTarget.key); setAttackTarget(null); }}
-        />
-      )}
-
+      <ActionConfirm />
       <CardTargetPicker />
       <RadioWidget position="bottom-left" />
 

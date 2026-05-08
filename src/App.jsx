@@ -10,9 +10,10 @@ import WeeklyMapsPage from './hub/pages/WeeklyMaps';
 import HowToPlay from './hub/pages/HowToPlay';
 import GangWars from './games/gangwars/GangWars';
 import PhoneClient from './hub/components/PhoneClient';
+import ToastContainer from './hub/components/ToastContainer';
 
 export default function App() {
-  const { currentPage, connect, fetchHubStatus, lastError } = useBBG();
+  const { currentPage, connect, fetchHubStatus } = useBBG();
 
   useEffect(() => {
     connect();
@@ -39,11 +40,7 @@ export default function App() {
         </>
       )}
 
-      {lastError && (
-        <div className="fixed bottom-6 right-6 z-[100] bg-bbg-red text-white px-4 py-3 rounded shadow-2xl font-ui font-semibold">
-          ⚠ {lastError}
-        </div>
-      )}
+      <ToastContainer />
     </div>
   );
 }
