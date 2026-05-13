@@ -151,9 +151,9 @@ const FACTIONS = {
     starting: { cash: 200, muscle: 200, clout: 200, connect: 150, cards: 6, preClaimedDistricts: 0 },
     passive: {
       name: 'Ride or Die',
-      desc: 'Draw 1 extra card whenever any Event card is triggered',
-      trigger: 'onEvent',
-      apply: (state, playerId) => { drawCards(state, playerId, 1); }
+      desc: 'Draw 1 extra card every time you play a card (chaos sustains itself)',
+      // Applied directly in playCard in GameEngine.js (v1.8)
+      apply: (state, playerId) => {}
     },
     active: {
       name: 'Wild Out',

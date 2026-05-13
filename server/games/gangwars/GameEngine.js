@@ -310,17 +310,9 @@ class GangWarsEngine {
     const player = this.state.players[sid];
     if (!player) return;
     drawCards(this.state, sid, 1);
-
-    const drawn = player.hand[player.hand.length - 1];
-    if (drawn?.type === 'event') {
-      try { drawn.apply(this.state); } catch (e) {}
-      Object.entries(this.state.players).forEach(([id, p]) => {
-        if (p.faction === 'craigwood' && !p.isEliminated) {
-          drawCards(this.state, id, 1);
-        }
-      });
-      this.broadcast('event_triggered', { card: drawn, socketId: sid });
-    }
+    // v1.8: event cards no longer exist in the deck; the legacy
+    // event-trigger / Craigwood event-passive logic has been removed.
+    // Craigwood now draws a bonus card on every playCard instead.
   }
 
   claimTerritory(socketId, tileKey) {
@@ -455,17 +447,35 @@ class GangWarsEngine {
 
     if (!this.canAfford(player, card.cost || {})) return { error: 'Cannot afford card' };
 
+    // ── LAWYER UP shield (v1.8) ───────────────────────────────
+    // If the card targets a player and the target has an active
+    // lawyerShield, the card is consumed + cost paid, but the effect
+    // is blocked.
+    let blockedBy = null;
+    if (options.targetId && options.targetId !== socketId) {
+      const target = this.state.players[options.targetId];
+      if (target?.lawyerShield > 0) {
+        target.lawyerShield = 0;
+        blockedBy = options.targetId;
+      }
+    }
+
     this.deductResources(player, card.cost || {});
     player.hand.splice(cardIdx, 1);
     this.state.discard.push(card);
 
     let result = null;
-    try {
-      result = card.apply(this.state, socketId, options.targetId, options.param1, options.param2);
-    } catch (e) { result = { error: e.message }; }
+    if (blockedBy) {
+      result = { blocked: true, blockedBy };
+    } else {
+      try {
+        result = card.apply(this.state, socketId, options.targetId, options.param1, options.param2);
+      } catch (e) { result = { error: e.message }; }
+    }
 
-    if (card.type === 'event') {
-      this.broadcast('event_triggered', { card, result, socketId });
+    // Craigwood passive (v1.8): draw 1 card every time you play a card.
+    if (player.faction === 'craigwood' && !blockedBy) {
+      drawCards(this.state, socketId, 1);
     }
 
     this.broadcastPrivateStates();
@@ -476,7 +486,7 @@ class GangWarsEngine {
       scores: this.getScores(),
     });
 
-    this.log(`🃏 ${player.name} played ${card.name}`);
+    this.log(`🃏 ${player.name} played ${card.name}${blockedBy ? ' (BLOCKED · Lawyer Up)' : ''}`);
     return { success: true, result };
   }
 
@@ -576,6 +586,13 @@ class GangWarsEngine {
       if (to.resources[resource] >= amount) {
         to.resources[resource] -= amount;
         from.resources[resource] += amount;
+      }
+    });
+
+    // Under the Table — bonus Clout to whoever played it
+    [from, to].forEach(p => {
+      if (p.tradeCloutBonus > 0) {
+        p.resources.clout = (p.resources.clout || 0) + p.tradeCloutBonus;
       }
     });
 
@@ -683,10 +700,15 @@ class GangWarsEngine {
     Object.entries(this.state.players).forEach(([id, player]) => {
       if (id === socketId || player.isEliminated) return;
 
+      // Witness Protection tax-immunity
+      if (player.taxImmuneUntilRound && player.taxImmuneUntilRound >= this.state.round) {
+        taxEvents.push({ payerId: id, exempt: true, reason: 'witness' });
+        return;
+      }
       const totalWealth = (player.resources.cash || 0) + (player.resources.muscle || 0)
                        + (player.resources.clout || 0) + (player.resources.connect || 0);
       if (totalWealth < POVERTY_FLOOR) {
-        taxEvents.push({ payerId: id, exempt: true });
+        taxEvents.push({ payerId: id, exempt: true, reason: 'poverty' });
         return;
       }
 

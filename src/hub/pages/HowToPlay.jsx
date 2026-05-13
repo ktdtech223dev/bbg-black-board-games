@@ -362,76 +362,106 @@ function Combat() {
 }
 
 function Cards() {
-  const action = [
-    { n:'Shakedown',         c:'100 Muscle',     d:'Steal 40% of target player\'s Cash',                          t:'pick player' },
-    { n:'Drive-By',          c:'150 Muscle',     d:'Destroy one tier of an enemy district',                       t:'pick enemy tile' },
-    { n:'Hostile Takeover',  c:'500 M + 300 $',  d:'Claim any Tier-1 enemy tile without combat',                  t:'pick T1 enemy tile' },
-    { n:'Heist',             c:'250 Muscle',     d:'Steal 250 of one resource from target player',                t:'player + resource' },
-    { n:'Smoke Out',         c:'100 Muscle',     d:'Target discards a random card',                                t:'pick player' },
-    { n:'Extortion',         c:'200 Muscle',     d:'Demand 200 of any resource — refusal = lose a tier',           t:'player + resource' },
-    { n:'Block Party',       c:'200 Clout',      d:'Players on your tiles pay double tax this round',              t:'no target' },
-    { n:'Flip the Script',   c:'300 Clout',      d:'Reverse tax this round — taxers pay you',                      t:'no target' },
-    { n:'Glow Up',           c:'250 Clout',      d:'Free 1-tier upgrade on your lowest-tier tile',                 t:'no target' },
-    { n:'Witness Protection',c:'200 Connect',    d:'Immune to all attacks for 1 round',                            t:'no target' },
-    { n:'Snitch',            c:'100 Connect',    d:'Reveal any player\'s full hand to everyone',                   t:'pick player' },
-    { n:'Territory Swap',    c:'400 Connect',    d:'Force-swap your last claimed tile for any enemy tile',         t:'pick enemy tile' },
-    { n:'Bail Money',        c:'400 Cash',       d:'Reset any enemy district back to unclaimed',                   t:'pick enemy tile' },
-    { n:'Loaded',            c:'300 Cash',       d:'Draw 3 cards immediately',                                     t:'no target' },
-    { n:'Plug Drop',         c:'200 Cash',       d:'Gain +200 of a random resource',                               t:'no target' },
-    { n:'Recruit',           c:'200 Cash',       d:'Convert: 200 Cash → 200 Muscle',                              t:'no target' },
-    { n:'Bag Run',           c:'100 Muscle',     d:'Convert: 100 Muscle → 200 Cash',                              t:'no target' },
-    { n:'Network',           c:'100 Cash',       d:'Convert: 100 Cash → 200 Connect',                             t:'no target' },
-    { n:'Under the Table',   c:'free',           d:'Your next trade this round is tax-free',                       t:'no target' },
-    { n:'Come Up',           c:'free',           d:'Draw 3 cards, keep 2',                                         t:'no target' },
+  const groups = [
+    {
+      title: 'ECONOMIC ENGINE',
+      desc: 'Fast resource gain — keep your engine running.',
+      cards: [
+        { n:'Cartel Bag',  c:'free',      d:'+50 of EVERY resource',                                                  t:'no target' },
+        { n:'Plug Drop',   c:'150 Cash',  d:'+250 of a random resource',                                              t:'no target' },
+        { n:'Come Up',     c:'free',      d:'Draw 3 cards, keep top 2',                                               t:'no target' },
+        { n:'Loaded',      c:'300 Cash',  d:'Draw 4 cards immediately',                                               t:'no target' },
+      ]
+    },
+    {
+      title: 'CONVERSIONS',
+      desc: 'Trade what you have for what you need (better ratios in v1.8).',
+      cards: [
+        { n:'Bag Run',  c:'100 Muscle', d:'+250 Cash',                              t:'no target' },
+        { n:'Recruit',  c:'200 Cash',   d:'+250 Muscle + 50 Clout',                 t:'no target' },
+        { n:'Network',  c:'100 Cash',   d:'+250 Connect',                           t:'no target' },
+        { n:'Influence',c:'100 Cash',   d:'+250 Clout',                             t:'no target' },
+      ]
+    },
+    {
+      title: 'TILE WARFARE',
+      desc: 'Take and develop territory faster.',
+      cards: [
+        { n:'Land Grab',        c:'150 Cash',         d:'Auto-claim a random unclaimed tile (no targeting)',           t:'no target' },
+        { n:'Glow Up',          c:'200 Clout',        d:'Free upgrade on lowest tile; if upgraded to Empire, draw a card', t:'no target' },
+        { n:'Drive-By',         c:'150 Muscle',       d:'Destroy 1 tier on enemy tile + 50 Muscle damage to owner',   t:'pick enemy tile' },
+        { n:'Hostile Takeover', c:'400 M + 250 Cash', d:'Claim any T1 enemy tile without combat',                     t:'pick T1 enemy tile' },
+        { n:'Bail Money',       c:'350 Cash',         d:'Reset enemy tile to unclaimed + you gain 100 Cash',          t:'pick enemy tile' },
+        { n:'Territory Swap',   c:'350 Connect',      d:'Force-swap your last claimed tile for any enemy tile',       t:'pick enemy tile' },
+      ]
+    },
+    {
+      title: 'ATTACK & STEAL',
+      desc: 'Direct resource theft.',
+      cards: [
+        { n:'Shakedown',  c:'100 Muscle', d:'Steal 50% of target\'s Cash',                                       t:'pick player' },
+        { n:'Heist',      c:'200 Muscle', d:'Steal 300 of one resource from target',                            t:'player + resource' },
+        { n:'Extortion',  c:'200 Muscle', d:'Demand 250 of one resource — refusal costs them a tier',           t:'player + resource' },
+        { n:'Kingslayer', c:'300 Muscle', d:'Auto-target wealthiest player — steal 20% of ALL their resources', t:'no target (auto)' },
+      ]
+    },
+    {
+      title: 'DEFENSE & CONTROL',
+      desc: 'Shield yourself or bend the tax phase.',
+      cards: [
+        { n:'Witness Protection', c:'200 Connect', d:'Immune to attacks AND tax-free for 1 full round',           t:'no target' },
+        { n:'Lawyer Up',          c:'300 Connect', d:'Cancel the NEXT card played against you (one-shot)',       t:'no target' },
+        { n:'Block Party',        c:'200 Clout',   d:'Doubles your tax rate this round',                          t:'no target' },
+        { n:'Flip the Script',    c:'250 Clout',   d:'Reverse tax this round — collect from the taxer',          t:'no target' },
+      ]
+    },
+    {
+      title: 'DISRUPTION',
+      desc: 'Mess with the other crew\'s hand.',
+      cards: [
+        { n:'Smoke Out',       c:'100 Muscle',  d:'Target discards 2 random cards',                                t:'pick player' },
+        { n:'Snitch',          c:'100 Connect', d:'Reveal hand to all + target discards most expensive card',     t:'pick player' },
+        { n:'Under the Table', c:'free',        d:'ALL your trades this round are tax-free + each grants +1 Clout', t:'no target' },
+      ]
+    },
   ];
-  const event = [
-    { n:'City Crackdown',   d:'No attacks allowed this round.' },
-    { n:'Economic Boom',    d:'All districts produce double resources this round.' },
-    { n:'Gang Truce',       d:'No attacks. Mandatory trade round.' },
-    { n:'New Blood',        d:'Two unclaimed districts open up at the city edges.' },
-    { n:'The Feds',         d:'Player with the most Muscle loses half of it.' },
-    { n:'Rent Strike',      d:'No tax collection this round.' },
-    { n:'Block Fire',       d:'A random occupied tile goes neutral.' },
-    { n:'Supply Chain',     d:'All resource costs reduced 25% this round.' },
-    { n:'War Season',       d:'Attacks cost 50% less Muscle this round.' },
-    { n:'The Drought',      d:'Resource yields halved this round.' },
-  ];
+
   return (
     <>
-      <H>Cards</H>
-      <P>Two types: <strong className="text-bbg-gold">Action cards</strong> (you choose to play, costs resources) and <strong className="text-clout">Event cards</strong> (trigger on draw, hit the whole table).</P>
+      <H>Cards (v1.8)</H>
+      <P>
+        Action-only deck — <strong className="text-bbg-gold">no more event cards</strong> clogging the draw. Every card is something you choose to play.
+        Every card had its numbers + secondary effects revamped to feel like a real situational power.
+      </P>
 
       <H3>How to play a card</H3>
       <ol className="list-decimal pl-6 space-y-1 text-sm mb-2">
-        <li>Open the <strong>HAND</strong> tab on phone, or scroll the card hand on TV.</li>
-        <li>Tap <strong>PLAY</strong> on the card you want.</li>
+        <li>Open the <strong>HAND</strong> drawer (bottom-center on desktop, HAND tab on phone)</li>
+        <li>Click <strong>PLAY</strong> on the card you want. Greyed cards (✗ COST) are unaffordable.</li>
         <li>If the card needs a target, the picker pops up — tap a player, tile, or resource.</li>
-        <li>Effect resolves immediately and the card hits the discard pile.</li>
+        <li>Effect resolves immediately. Card hits the discard pile.</li>
       </ol>
 
-      <H3>Action cards</H3>
-      <div className="space-y-1 text-xs">
-        {action.map(a => (
-          <div key={a.n} className="grid grid-cols-12 gap-2 bg-bbg-raised px-2 py-1.5 rounded">
-            <span className="col-span-3 font-display tracking-wider">{a.n.toUpperCase()}</span>
-            <span className="col-span-2 font-mono text-bbg-gold">{a.c}</span>
-            <span className="col-span-5 text-bbg-text">{a.d}</span>
-            <span className="col-span-2 font-mono text-bbg-muted">{a.t}</span>
+      {groups.map(g => (
+        <div key={g.title} className="mt-4">
+          <H3>{g.title}</H3>
+          <P>{g.desc}</P>
+          <div className="space-y-1 text-xs">
+            {g.cards.map(a => (
+              <div key={a.n} className="grid grid-cols-12 gap-2 bg-bbg-raised px-2 py-1.5 rounded">
+                <span className="col-span-3 font-display tracking-wider">{a.n.toUpperCase()}</span>
+                <span className="col-span-2 font-mono text-bbg-gold">{a.c}</span>
+                <span className="col-span-5 text-bbg-text">{a.d}</span>
+                <span className="col-span-2 font-mono text-bbg-muted">{a.t}</span>
+              </div>
+            ))}
           </div>
-        ))}
-      </div>
+        </div>
+      ))}
 
-      <H3>Event cards</H3>
-      <P>Triggered automatically when drawn. The whole round is affected.</P>
-      <Note color="gold"><strong>Craigwood Gangstas</strong> draw an extra card every time an event triggers. Chaos benefits chaos.</Note>
-      <div className="space-y-1 text-xs">
-        {event.map(e => (
-          <div key={e.n} className="grid grid-cols-12 gap-2 bg-bbg-raised px-2 py-1.5 rounded">
-            <span className="col-span-4 font-display tracking-wider text-clout">{e.n.toUpperCase()}</span>
-            <span className="col-span-8 text-bbg-text">{e.d}</span>
-          </div>
-        ))}
-      </div>
+      <Note color="gold">
+        <strong>Craigwood</strong> now draws +1 card every time they <em>play</em> a card. Their hand keeps reloading.
+      </Note>
     </>
   );
 }
@@ -455,7 +485,7 @@ function Factions() {
       act:'Flip the Bag — convert any resource 2:1 into Clout',
       start:'150$ · 150M · 350C · 100K · 3 cards' },
     { n:'Craigwood Gangstas',   c:'#cc6600', city:'Craigwood',   style:'Chaos',       diff:'Hard',
-      pass:'Ride or Die — +1 card on every Event triggered',
+      pass:'Ride or Die — draw +1 card every time you PLAY a card (sustains chaos)',
       act:'Wild Out — spend 3 of any resource, force a player to reroll',
       start:'200$ · 200M · 200C · 150K · 6 cards' },
     { n:'LA Kings',             c:'#8822cc', city:'Los Angeles', style:'Soft Power',  diff:'Medium',
